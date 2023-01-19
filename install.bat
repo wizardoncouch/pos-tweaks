@@ -20,14 +20,14 @@ setlocal enabledelayedexpansion
 :: search for Scripts folder that resides in : C:\Users\User Name\AppData\Roaming\Python\Python*\Scripts
 for /d /r "%USERPROFILE%" %%j in (Python) do (
 	for /D %%i in ("%%j\Python*") do (
-	  for /D %%d in ("%%i\Scripts") do (
-				@if exist "%%d" (
-					@set _variable=%%d
-					@echo !_variable!
-					::SET Path here
-					setx path %%d
-				)
-	  )
+        for /D %%d in ("%%i\Scripts") do (
+            @if exist "%%d" (
+                @set _variable=%%d
+                @echo !_variable!
+                ::SET Path here
+                setx path %%d
+            )
+        )
 	)
 )
 
