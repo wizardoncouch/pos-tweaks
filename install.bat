@@ -12,8 +12,29 @@ curl "https://www.python.org/ftp/python/3.10.5/python-3.10.5-amd64.exe" -o pytho
 rem --Install python
 python-installer.exe /quiet InstallAllUsers=1 PrependPath=1 
 
+::search all folder path for folder Scripts
+@echo off
+setlocal
+setlocal enabledelayedexpansion
+@echo off
+:: search for Scripts folder that resides in : C:\Users\User Name\AppData\Roaming\Python\Python*\Scripts
+for /d /r "%USERPROFILE%" %%j in (Python) do (
+	for /D %%i in ("%%j\Python*") do (
+	  for /D %%d in ("%%i\Scripts") do (
+				@if exist "%%d" (
+					@set _variable=%%d
+					@echo !_variable!
+					::SET Path here
+					setx path %%d
+				)
+	  )
+	)
+)
+
+endlocal
+
 rem --Refresh Environmental Variables
-call RefreshEnv.cmd
+RefreshEnv
 
 rem --Use python, pip
 python -m venv env
@@ -33,4 +54,3 @@ echo,
 pause
 
 :: source : https://stackoverflow.com/questions/66913410/install-python-django-in-batch-script
-
