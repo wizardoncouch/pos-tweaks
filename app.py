@@ -62,7 +62,7 @@ def scheduled():
             if p is None:
                 insert = db.cursor()
                 insert.execute("""INSERT INTO `item`(`barcode`,   `itemname`,   `shortname`,   `groupid`,    `part`,   `class`,      `amt`,        `uom`,    `dlock`) 
-                                            VALUES('{barcode}',   '{name}',     {name},        '{group}',    '{part}', '{category}', '{price}',    '{unit}', NOW())""".format(
+                                            VALUES('{barcode}',   '{name}',     {name},        '{group}',    'MENU', '{category}', '{price}',    '{unit}', NOW())""".format(
                                                 barcode=product['uid'], 
                                                 name=product['name'], 
                                                 category=product['category'], 
