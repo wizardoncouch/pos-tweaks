@@ -31,13 +31,13 @@ def scheduled():
         for product in products.json():
 
             checkCategory = db.cursor()
-            checkCategory.execute("SELECT count(*) FROM tblmenulist WHERE `class`='{category}' and iscategory=1".format(category=product['category']))
+            checkCategory.execute("SELECT count(*) FROM tblmenulist WHERE `class`='{category}' and iscategory=1".format(category=db.escape_string(product['category'])))
             category = checkCategory.fetchone()
             if category[0] == 0:
                 insertCategory = db.cursor()
                 insertCategory.execute("""INSERT INTO tblmenulist   (`class`, `iscategory`, `skincolor`, `fontcolor`, `dlock`) 
                                                         VALUES      ('{name}','{iscategory}','{skincolor}','{fontcolor}',NOW())""".format(
-                    name=product['category'], 
+                    name=db.escape_string(product['category']), 
                     iscategory=1, 
                     skincolor='-8355712',
                     fontcolor='-16777216',
@@ -45,11 +45,11 @@ def scheduled():
                 )
 
             checkGroup = db.cursor()
-            checkGroup.execute("SELECT count(*) FROM `tblmenugrp` WHERE `grp`='{group}'".format(group=product['group']))
+            checkGroup.execute("SELECT count(*) FROM `tblmenugrp` WHERE `grp`='{group}'".format(group=db.escape_string(product['group'])))
             group = checkGroup.fetchone()
             if group[0] == 0:
                 inserGroup = db.cursor()
-                inserGroup.execute("INSERT INTO `tblmenugrp`(`grp`, `dlock`) VALUES('{name}',NOW())".format(name=product['group']))
+                inserGroup.execute("INSERT INTO `tblmenugrp`(`grp`, `dlock`) VALUES('{name}',NOW())".format(name=db.escape_string(product['group'])))
 
 
             fetchItem = db.cursor(dictionary=True)
@@ -64,9 +64,9 @@ def scheduled():
                 insert.execute("""INSERT INTO `item`(`barcode`,   `itemname`,   `shortname`,   `groupid`,    `part`,   `class`,      `amt`,        `uom`,    `dlock`) 
                                             VALUES('{barcode}',   '{name}',     {name},        '{group}',    'MENU', '{category}', '{price}',    '{unit}', NOW())""".format(
                                                 barcode=product['uid'], 
-                                                name=product['name'], 
-                                                category=product['category'], 
-                                                group=product['group'], 
+                                                name=db.escape_string(product['name']), 
+                                                category=db.escape_string(product['category']), 
+                                                group=db.escape_string(product['group']), 
                                                 price=product['price'],
                                                 unit=product['unit']
                                             )
