@@ -1,11 +1,11 @@
 @echo off
-cd %~dp0
+cd %~dp0 && cd ..
 python -m venv venv
 call venv\Scripts\activate
-pip install -r "%~dp0\requirements.txt"
+pip install -r "requirements.txt"
 
-FLASK_APP=app.py flask run --host=0.0.0.0
-FLASK_APP=app.py flask scheduled
+set FLASK_APP=app.py && flask run --host=0.0.0.0
+set FLASK_APP=app.py && flask scheduled
 
-schtasks /create /sc minute /mo 5 /tn "POS Sync" /tr "FLASK_APP=app.py %~dp0\venv\Scripts\flask scheduled"
-schtasks /create /sc onstart /tn "POS App" /tr "FLASK_APP=app.py %~dp0\venv\Scripts\flask run --host=0.0.0.0"
+schtasks /create /sc minute /mo 5 /tn "POS Sync" /tr "set FLASK_APP=app.py && %~dp0\..\venv\Scripts\flask scheduled"
+schtasks /create /sc onstart /tn "POS App" /tr "set FLASK_APP=app.py && %~dp0\..\venv\Scripts\flask run --host=0.0.0.0"

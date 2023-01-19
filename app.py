@@ -7,9 +7,9 @@ from datetime import datetime
 db = connector.connect(
     host="localhost",
     user="root",
-    password="x1root99",
-    database="x-pp",
-    port=3306
+    password="mjm",
+    database="lite",
+    port=3309
 )
 
 
