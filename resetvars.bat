@@ -1,3 +1,3 @@
 @echo off
-%~dp0\resetvars.vbs
+%~dp0resetvars.vbs
 call "%TEMP%\resetvars.bat"
