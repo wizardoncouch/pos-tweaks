@@ -8,7 +8,7 @@ db = connector.connect(
     host="localhost",
     user="root",
     password="x1root99",
-    database="x-pp",
+    database="lite",
     port=3306
 )
 
@@ -23,7 +23,6 @@ def hello_world():
 @app.cli.command()
 @click.option('--b')
 def scheduled(b):
-    # products = requests.get('https://pp.d3.net/api.php?action=products&branch=1154')
     products = requests.get('https://pp.d3.net/api.php?action=products&branch=' + b)
     if products:
         for product in products.json():
@@ -48,26 +47,33 @@ def scheduled(b):
             fetchItem = db.cursor(dictionary=True)
             fetchItem.execute("SELECT * FROM `item` WHERE `barcode`='{uid}'".format(uid=product['uid']))
             p = fetchItem.fetchone()
-            if p:
-                if p['amt'] != product['price']:
-                    updateItem = db.cursor(prepared=True)
-                    updateItem.execute("UPDATE `item` set `amt`=%s WHERE `itemid`=%s",(product['price'], p['itemid']))
-                    print('Product price is updated...')
-
-                if p['class'] != product['category']:
-                    updateItem = db.cursor(prepared=True)
-                    updateItem.execute("UPDATE `item` set `class`=%s WHERE `itemid`=%s",(product['category'], p['itemid']))
-                    print('Product price is updated...')
-
-                if p['groupid'] != product['group']:
-                    updateItem = db.cursor(prepared=True)
-                    updateItem.execute("UPDATE `item` set `groupid`=%s WHERE `itemid`=%s",(product['group'], p['itemid']))
-                    print('Product price is updated...')
-
-            else:
+            if p is None:
                 insert = db.cursor(prepared=True)
-                insert.execute("""INSERT INTO `item`(`barcode`,   `itemname`,   `shortname`,   `groupid`,    `part`,   `class`,      `amt`,        `uom`,    `dlock`) 
-                                            VALUES  (%s,        %s,         %s,          %s,         'MENU',   %s,         %s,         %s,     NOW())""",
-                                                    (product['uid'], product['name'], product['name'], product['group'], product['category'], product['price'], product['unit']))
-                print('New product inserted...')
+                insert.execute("""INSERT INTO `item`(`barcode`, `itemname`, `shortname`, `groupid`, `part`, `class`, `uom`, `dlock`, `isinactive`) 
+                                            VALUES  (%s,        %s,         %s,          %s,        'MENU', %s,      %s,    NOW(),   1           )""",
+                                                    (product['uid'], product['name'], product['name'], product['group'], product['category'], product['unit']))
+                print("{name} is inserted...".format(name=product['name']))
+                fetchItem = db.cursor(dictionary=True)
+                fetchItem.execute("SELECT * FROM `item` WHERE itemid=last_insert_id()")
+                p = fetchItem.fetchone()
+            
+            if float(product['price']) > 0 and float(product['price'] != float(p['amt'])):
+                updateItem = db.cursor(prepared=True)
+                updateItem.execute("UPDATE `item` set `amt`=%s, `isinactive`=0 WHERE `itemid`=%s",(product['price'], p['itemid']))
+                print("{name} is updated...".format(name=product['name']))
 
+            #update if the category is changed
+            if p['class'] != product['category']:
+                updateItem = db.cursor(prepared=True)
+                updateItem.execute("UPDATE `item` set `class`=%s WHERE `itemid`=%s",(product['category'], p['itemid']))
+                print("{name} category updated to {category}...".format(name=product['name'], category=product['category']))
+
+            #update if the group is changed
+            if p['groupid'] != product['group']:
+                updateItem = db.cursor(prepared=True)
+                updateItem.execute("UPDATE `item` set `groupid`=%s WHERE `itemid`=%s",(product['group'], p['itemid']))
+                print("{name} group updated to {group}...".format(name=product['name'], category=product['group']))
+    
+    #set the category to inactive if there are no active item found
+    updateCategories = db.cursor()
+    updateCategories.execute("UPDATE tblmenulist set isinactive=1 WHERE (SELECT count(*) FROM item WHERE iscategory=1 and `class`=tblmenulist.class and isinactive=0) = 0")
