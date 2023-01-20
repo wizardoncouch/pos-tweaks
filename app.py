@@ -1,15 +1,15 @@
 from flask import Flask
 from mysql import connector
 import requests
-import json
+import click
 from datetime import datetime
 
 db = connector.connect(
     host="localhost",
     user="root",
-    password="mjm",
-    database="lite",
-    port=3309
+    password="x1root99",
+    database="x-pp",
+    port=3306
 )
 
 
@@ -21,12 +21,10 @@ def hello_world():
     return "<p>Hello, World!</p>"
 
 @app.cli.command()
-def scheduled():
-
-    print('Importing products...')
-
+@click.option('--b')
+def scheduled(b):
     # products = requests.get('https://pp.d3.net/api.php?action=products&branch=1154')
-    products = requests.get('https://pp.d3.net/api.php?action=products&branch=1361')
+    products = requests.get('https://pp.d3.net/api.php?action=products&branch=' + b)
     if products:
         for product in products.json():
 
@@ -50,11 +48,23 @@ def scheduled():
             fetchItem = db.cursor(dictionary=True)
             fetchItem.execute("SELECT * FROM `item` WHERE `barcode`='{uid}'".format(uid=product['uid']))
             p = fetchItem.fetchone()
-            if p and p['amt'] != product['price']:
+            if p:
+                if p['amt'] != product['price']:
                     updateItem = db.cursor(prepared=True)
                     updateItem.execute("UPDATE `item` set `amt`=%s WHERE `itemid`=%s",(product['price'], p['itemid']))
-                    print('Product updated...')
-            if p is None:
+                    print('Product price is updated...')
+
+                if p['class'] != product['category']:
+                    updateItem = db.cursor(prepared=True)
+                    updateItem.execute("UPDATE `item` set `class`=%s WHERE `itemid`=%s",(product['category'], p['itemid']))
+                    print('Product price is updated...')
+
+                if p['groupid'] != product['group']:
+                    updateItem = db.cursor(prepared=True)
+                    updateItem.execute("UPDATE `item` set `groupid`=%s WHERE `itemid`=%s",(product['group'], p['itemid']))
+                    print('Product price is updated...')
+
+            else:
                 insert = db.cursor(prepared=True)
                 insert.execute("""INSERT INTO `item`(`barcode`,   `itemname`,   `shortname`,   `groupid`,    `part`,   `class`,      `amt`,        `uom`,    `dlock`) 
                                             VALUES  (%s,        %s,         %s,          %s,         'MENU',   %s,         %s,         %s,     NOW())""",
