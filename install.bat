@@ -6,7 +6,8 @@ curl "https://www.python.org/ftp/python/3.10.5/python-3.10.5-amd64.exe" -o pytho
 rem --Install python
 python-installer.exe /quiet InstallAllUsers=1 PrependPath=1 
 
-call %~dp0\resetvars.bat
+@”%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe” -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command “[System.Net.ServicePointManager]::SecurityProtocol = 3072; iex ((New-Object System.Net.WebClient).DownloadString(‘https://community.chocolatey.org/install.ps1’))” && SET “PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin”
+resetvars
 
 cd %~dp0 
 python -m venv venv
