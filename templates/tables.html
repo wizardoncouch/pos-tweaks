@@ -12,7 +12,7 @@
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end me-2 border-0 shadow-sm">
                     {%for floor in data.floors%}
-                    <li><a class="dropdown-item d-flex justify-content-between" href="?floor={{floor.name}}">{{floor.name}} floor {%if floor.name == data.floor%}<i class="bi bi-check text-success"></i>{%endif%}</a></li>
+                    <li><a class="dropdown-item d-flex justify-content-between" href="?floor={{floor.name|urlencode}}">{{floor.name}} floor {%if floor.name == data.floor%}<i class="bi bi-check text-success"></i>{%endif%}</a></li>
                     {%endfor%}
                 </ul>
             </div>
