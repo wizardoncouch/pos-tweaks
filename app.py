@@ -168,10 +168,10 @@ def transaction_delete():
         deleteTransaction = db.cursor(prepared=True)
         deleteTransaction.execute("DELETE FROM salestran WHERE line=%s", (transaction['line'],))
 
-        getTableTransactions = db.cursor(prepared=True, dictionary=True)
-        getTableTransactions.execute("SELECT count(*) as cnt FROM salestran WHERE client=%s", (transaction['client'],))
+        getTableTransactions = db.cursor(prepared=True)
+        getTableTransactions.execute("SELECT count(*) FROM salestran WHERE client=%s", (transaction['client'],))
         transactions = getTableTransactions.fetchone()
-        if transactions['cnt'] == 0:
+        if transactions[0] == 0:
             deleteOSNumber = db.cursor(prepared=True)
             deleteOSNumber.execute("DELETE FROM osnumber WHERE tableno=%s", (transaction['client'],))
 

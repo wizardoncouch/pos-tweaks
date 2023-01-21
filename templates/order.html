@@ -33,7 +33,7 @@
                                                 </form>
                                             {%endif%}
                                         </td>
-                                        <td class="text-end">{{(item.isamt*item.isqty)|round(2)}}</td>
+                                        <td class="text-end">{{"{:,.2f}".format(item.isamt*item.isqty)}}</td>
                                         <td width="25px">
                                             {%if item.isprint == 0%}
                                                 <form method="post" class="p-0 m-0 d-flex justify-content-end" action="/transaction/delete">
@@ -49,7 +49,7 @@
                     </div>
                     <div style="height:60px;" class="bg-secondary d-flex align-items-center justify-content-between p-3">
                         <span class="fs-4 text-uppercase">Total</span>
-                        <span class="fs-4">{{data.total}}</span>
+                        <span class="fs-4">{{"{:,.2f}".format(data.total)}}</span>
                     </div>
                 </div>
                 <div class="col-8 bg-white h-100">
