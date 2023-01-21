@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="vh-100">
+        <div style="height:60px;" class="bg-light d-flex align-items-center shadow-sm">
+            <a href="/?floor={{data.table.flr}}" class="fw-bold ms-1 me-3 btn btn-light fs-4"><i class="bi bi-arrow-left"></i></a>
+            <div class="fs-4 fw-bold text-dark text-capitalize">Order for table: {{data.table.clientname}}</div>
+        </div>
+        <div style="height: calc(100% - 60px);" class="bg-white d-block">
+            <div class="row h-100">
+                <div class="col-4 bg-white border-end border-light h-100 p-0">
+                    <div style="height:calc(100% - 60px); overflow:auto;" class="ps-2">
+                        <table class="table">
+                            <thead>
+                                <tr class="bg-secondary">
+                                    <th scope="col" class="text-uppercase">Item</th>
+                                    <th scope="col" class="text-uppercase">Qty</th>
+                                    <th scope="col" class="text-uppercase text-end">Amt</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {%for item in data.orders%}
+                                    <tr class="alert {{'alert-success' if item.isprint else 'alert-warning'}} border-0">
+                                        <th scope="row">{{item.itemname}}</th>
+                                        <td class="text-left">
+                                            {%if item.isprint == 1%}
+                                                {{(item.isqty|round(2)|string).rstrip('.0')}}
+                                            {%else%}
+                                                <form method="post" class="p-0 m-0" action="/transaction">
+                                                    <input class="alert alert-warning border-0 p-0 m-0 border-bottom border-warning rounded-0" size="5" style="text-align: left;" value="{{(item.isqty|round(2)|string).rstrip('.0')}}"/>
+                                                </form>
+                                            {%endif%}
+                                        </td>
+                                        <td class="text-end">{{item.isamt}}</td>
+                                    </tr>
+                                {%endfor%}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="height:60px;" class="bg-light d-flex align-items-center justify-content-between p-3">
+                        <span class="fs-4 text-uppercase">Total</span>
+                        <span class="fs-4">{{data.total}}</span>
+                    </div>
+                </div>
+                <div class="col-8 bg-white h-100">
+                    <div class="row h-100">
+                        <div class="col-10 h-100">
+
+                        </div>
+                        <div class="col-2 h-100 bg-light" style="overflow-y: auto;">
+                            <div class="row">
+                                {%for category in data.categories%}
+                                    <div class="col">
+                                        <div class="p-2">
+                                            <a href="?category={{category.name}}" type="button" class="btn btn-secondary w-100">{{category.name}}</a>
+                                        </div>
+                                    </div>
+                                {%endfor%}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
