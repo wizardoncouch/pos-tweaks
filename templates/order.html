@@ -22,18 +22,18 @@
                             <tbody>
                                 {%for item in data.orders%}
                                     <tr class="alert {{'alert-success' if item.isprint else 'alert-warning'}} border-0">
-                                        <th scope="row">{{item.itemname}}</th>
+                                        <th scope="row">{{item.name}}</th>
                                         <td class="text-left">
                                             {%if item.isprint == 1%}
-                                                {{(item.isqty|round(2)|string).rstrip('.0')}}
+                                                {{(item.qty|round(2)|string).rstrip('.0')}}
                                             {%else%}
                                                 <form method="post" class="p-0 m-0" action="/transaction">
                                                     <input type="hidden" name="id" value="{{item.line}}">
-                                                    <input name="qty" class="alert alert-warning border-0 p-0 m-0 border-bottom border-warning rounded-0" size="5" style="text-align: left;" value="{{(item.isqty|round(2)|string).rstrip('.0')}}"/>
+                                                    <input name="qty" class="alert alert-warning border-0 p-0 m-0 border-bottom border-warning rounded-0" size="5" style="text-align: left;" value="{{(item.qty|round(2)|string).rstrip('.0')}}"/>
                                                 </form>
                                             {%endif%}
                                         </td>
-                                        <td class="text-end">{{"{:,.2f}".format(item.isamt*item.isqty)}}</td>
+                                        <td class="text-end">{{"{:,.2f}".format(item.amount)}}</td>
                                         <td width="25px">
                                             {%if item.isprint == 0%}
                                                 <form method="post" class="p-0 m-0 d-flex justify-content-end" action="/transaction/delete">
