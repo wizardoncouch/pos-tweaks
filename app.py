@@ -1,24 +1,19 @@
-from flask import Flask, render_template, request, make_response, redirect, session
+from flask import Flask, render_template, request, make_response, redirect
 from mysql import connector
-from flask_session import Session
 import requests
 import click
+from datetime import datetime
 
 db = connector.connect(
     host="localhost",
     user="root",
-    password="mjm",
+    password="x1root99",
     database="lite",
-    port=3309
+    port=3306
 )
 
-cursor = db.cursor(dictionary=True, prepared=True)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = "Oh_so_secret"
-app.config["SESSION_PERMANENT"] = False
-app.config["SESSION_TYPE"] = "filesystem"
-Session(app)
 
 @app.route("/")
 def floors():
@@ -29,8 +24,9 @@ def floors():
         "tables": []
     }
 
-    cursor.execute("SELECT DISTINCT(flr) as floor FROM client WHERE isconsignee=1")
-    for row in cursor.fetchall():
+    getFloors = db.cursor(dictionary=True)
+    getFloors.execute("SELECT DISTINCT(flr) as floor FROM client WHERE isconsignee=1")
+    for row in getFloors.fetchall():
         data['floors'].append({
             "name": row['floor']
         })
@@ -40,8 +36,9 @@ def floors():
     
     if floor:
         data['floor'] = floor
-        cursor.execute("""SELECT `clientname`, `client`, `clientid`, `locx`, `locy`, (SELECT count(*) from salestran WHERE client=client.client) as `ordercount` FROM `client` WHERE flr=%s""", (floor,))
-        for table in cursor.fetchall():
+        getTables = db.cursor(dictionary=True, prepared=True) 
+        getTables.execute("""SELECT `clientname`, `client`, `clientid`, `locx`, `locy`, (SELECT count(*) from salestran WHERE client=client.client) as `ordercount` FROM `client` WHERE flr=%s""", (floor,))
+        for table in getTables.fetchall():
             data['tables'].append({
                 "id": table['clientid'],
                 "name": table['clientname'],
@@ -55,68 +52,52 @@ def floors():
 @app.route("/table/<id>")
 def tables(id):
     args = request.args
-    cursor.execute("SELECT id, class as name FROM tblmenulist where isinactive=0 and iscategory=1 order by class asc")
-    categories = cursor.fetchall()
+    getCategories = db.cursor(dictionary=True)
+    getCategories.execute("SELECT id, class as name FROM tblmenulist where isinactive=0 and iscategory=1 order by class asc")
+    categories = getCategories.fetchall()
 
     products = []
     subProducts = []
     if args.get('category'):
-        cursor.execute("SELECT DISTINCT(groupid) as itemname, class, '' as barcode FROM `item` WHERE `class`=%s AND `groupid` > ''", (args.get('category'),))
-        groups = cursor.fetchall()
+        getGroups = db.cursor(dictionary=True, prepared=True)
+        getGroups.execute("SELECT DISTINCT(groupid) as itemname, class, '' as barcode FROM `item` WHERE `class`=%s AND `groupid` > ''", (args.get('category'),))
+        groups = getGroups.fetchall()
         if groups:
             products = groups
             if args.get('group'):
-                cursor.execute("SELECT * FROM item WHERE `class`=%s AND `groupid`=%s ORDER by itemname ASC", (args.get('category'), args.get('group')))
-                subProducts = cursor.fetchall()
+                getProductsByGroup = db.cursor(dictionary=True, prepared=True)
+                getProductsByGroup.execute("SELECT * FROM item WHERE `class`=%s AND `groupid`=%s ORDER by itemname ASC", (args.get('category'), args.get('group')))
+                subProducts = getProductsByGroup.fetchall()
 
             #for not grouped products
-            cursor.execute("SELECT * FROM item WHERE `class`=%s and groupid='' ORDER by itemname ASC", (args.get('category'),))
-            for p in cursor.fetchall():
+            getProducts = db.cursor(dictionary=True, prepared=True)
+            getProducts.execute("SELECT * FROM item WHERE `class`=%s and groupid='' ORDER by itemname ASC", (args.get('category'),))
+            for p in getProducts.fetchall():
                 products.append(p)
         else:
-            cursor.execute("SELECT * FROM item WHERE `class`=%s ORDER by itemname ASC", (args.get('category'),))
-            products = cursor.fetchall()
+            getProducts = db.cursor(dictionary=True, prepared=True)
+            getProducts.execute("SELECT * FROM item WHERE `class`=%s ORDER by itemname ASC", (args.get('category'),))
+            products = getProducts.fetchall()
 
 
-    cursor.execute("SELECT * FROM client WHERE clientid=%s", (id,))
-    table = cursor.fetchone()
+    getTable = db.cursor(dictionary=True, prepared=True)
+    getTable.execute("SELECT * FROM client WHERE clientid=%s", (id,))
+    table = getTable.fetchone()
     if table:
-        cursor.execute("SELECT * FROM salestran where client=%s", (table['client'],))
+        getOrders = db.cursor(dictionary=True, prepared=True)
+        getOrders.execute("SELECT * FROM salestran where client=%s", (table['client'],))
+        orders = getOrders.fetchall()
         total = 0
         printable = False
-        orders = []
-        for order in cursor.fetchall():
-            orders.append({
-                "line": order['line'],
-                "name": order['itemname'],
-                "barcode": order['barcode'],
-                "qty": float(order['isqty']),
-                "amount": float(order['isamt']) * float(order['isqty']),
-                "isprint": 1
-            })
+        for order in orders:
             total += float(order['isamt']) * float(order['isqty'])
-
-        session_key = "transactions-" + table['client']
-        if session.get(session_key):
-            printable = True
-            cursor.execute("SELECT * FROM `item` WHERE barcode in(%s)", (session.get(session_key).keys()))
-            for item in cursor.fetchall():
-                amount = float(item['amt']) * float(session.get(session_key)[item['barcode']])
-                orders.append({
-                    "line": 0,
-                    "name": item['itemname'],
-                    "barcode": item['barcode'],
-                    "qty": float(session.get(session_key)[item['barcode']]),
-                    "amount": amount, 
-                    "isprint": 0
-                })
-                total += amount
-
+            if order['isprint'] == 0:
+                printable = True
         return render_template('order.html', data={
             "categories": categories,
             "products": products,
             "subProducts": subProducts,
-            "table": table, 
+            "table":table, 
             "orders": orders, 
             "total": total, 
             "printable": printable
@@ -126,91 +107,87 @@ def tables(id):
 
 @app.route("/transaction", methods=['POST'])
 def transaction():
-    if request.form.get('table'):
-        session_key = "transactions-" + request.form.get('table')
-    
+    if request.form.get('id'):
+        getTransaction = db.cursor(prepared=True, dictionary=True)
+        getTransaction.execute("SELECT * FROM salestran WHERE line=%s", (request.form.get('id'),))
+        transaction = getTransaction.fetchone()
+        if transaction and request.form.get('qty'):
+            updateTransaction = db.cursor(prepared=True)
+            updateTransaction.execute("UPDATE salestran set isqty=%s WHERE line=%s", (request.form.get('qty'), transaction['line']))
+
     if request.form.get('barcode'):
-        barcode = int(request.form.get('barcode'))
-
-        if session.get(session_key)[barcode]:
-            session[session_key][barcode] += 1
-        else:
-            session[session_key][barcode] + 1
-
-    return redirect(request.referrer)
-
-@app.route("/print", methods=['POST'])
-def print():
-    # import os, sys import win32print
-    import tempfile
-    import win32api
-    import win32print
-
-    printerName = 'Bar Printer'
-    filename = tempfile.mktemp (".txt")
-    open (filename, "w").write ("This is a test")
-
-    win32api.ShellExecute (0,"print", filename, '/d:"%s"' % printerName, ".", 0 )
-
-
-    # cursor.execute("SELECT * FROM item WHERE barcode IN(381,382,383)")
-    # for item in cursor.fetchall():
-
-    # if request.form.get('id'):
-    #     cursor.execute("SELECT * FROM salestran WHERE line=%s", (request.form.get('id'),))
-    #     transaction = cursor.fetchone()
-    #     if transaction and request.form.get('qty'):
-    #         cursor.execute("UPDATE salestran set isqty=%s WHERE line=%s", (request.form.get('qty'), transaction['line']))
-
-    # if request.form.get('barcode'):
-    #     cursor.execute("SELECT * FROM item WHERE barcode=%s", (request.form.get('barcode'),))
-    #     item = cursor.fetchone()
-    #     cursor.execute("SELECT * FROM `client` WHERE `client`=%s", (request.form.get('table'),))
-    #     table = cursor.fetchone()
-    #     if table is None:
-    #         return make_response("Table not specified", 404)
+        getItem = db.cursor(prepared=True, dictionary=True)
+        getItem.execute("SELECT * FROM item WHERE barcode=%s", (request.form.get('barcode'),))
+        item = getItem.fetchone()
+        getTable = db.cursor(prepared=True, dictionary=True)
+        getTable.execute("SELECT * FROM `client` WHERE `client`=%s", (request.form.get('table'),))
+        table = getTable.fetchone()
+        if table is None:
+            return make_response("Table not specified", 404)
         
-    #     cursor.execute("SELECT * FROM salestran WHERE `client`=%s LIMIT 1", (table['client'],))
-    #     transaction = cursor.fetchone()
-    #     if transaction:
-    #         osno = transaction['osno']
-    #         ccode = transaction['ccode']
-    #         screg = transaction['screg']
-    #         scsenior = transaction['scsenior']
-    #         grp = transaction['grp']
-    #         waiter = transaction['waiter']
-    #         source = transaction['source']
-    #     else:
-    #         cursor.execute("INSERT INTO osnumber(tableno) VALUES(%s)", (table['client'],))
-    #         osno = cursor.lastrowid
-    #         ccode = 'WALK-IN'
-    #         screg = 10
-    #         scsenior = 10
-    #         grp = 'A'
-    #         waiter = 'Administrator'
-    #         source = 'WH00001'
-    #     cursor.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s", (table['client'], item['barcode']))
-    #     existingTransation = cursor.fetchone()
-    #     if existingTransation:
-    #         cursor.execute("UPDATE salestran SET isqty=isqty+1 WHERE line=%s", (existingTransation['line'],))
-    #     else:
-    #         cursor.execute("""INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `isprint`, dateid)
-    #                                                     VALUES(%s,       %s,           %s,        %s,         %s,      1,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       0,         CURRENT_DATE()       )""",
-    #                                                         (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
+        getTransaction = db.cursor(prepared=True, dictionary=True)
+        getTransaction.execute("SELECT * FROM salestran WHERE `client`=%s LIMIT 1", (table['client'],))
+        transaction = getTransaction.fetchone()
+        if transaction:
+            osno = transaction['osno']
+            ccode = transaction['ccode']
+            screg = transaction['screg']
+            scsenior = transaction['scsenior']
+            grp = transaction['grp']
+            waiter = transaction['waiter']
+            source = transaction['source']
+        else:
+            getOS = db.cursor(prepared=True)
+            getOS.execute("INSERT INTO osnumber(tableno) VALUES(%s)", (table['client'],))
+            osno = getOS.lastrowid
+            ccode = 'WALK-IN'
+            screg = 10
+            scsenior = 10
+            grp = 'A'
+            waiter = 'Administrator'
+            source = 'WH00001'
+        checkTransaction = db.cursor(prepared=True, dictionary=True)
+        checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s", (table['client'], item['barcode']))
+        existingTransation = checkTransaction.fetchone()
+        if existingTransation:
+            updateTransaction = db.cursor(prepared=True)
+            updateTransaction.execute("UPDATE salestran SET isqty=isqty+1 WHERE line=%s", (existingTransation['line'],))
+        else:
+            insertTransaction = db.cursor(prepared=True)
+            insertTransaction.execute("""INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `isprint`, dateid)
+                                                        VALUES(%s,       %s,           %s,        %s,         %s,      1,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       0,         CURRENT_DATE()       )""",
+                                                            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
     return redirect(request.referrer)
 
 @app.route("/transaction/delete", methods=['POST'])
 def transaction_delete():
     if request.form.get('id'):
-        cursor.execute("SELECT * FROM salestran WHERE line=%s", (request.form.get('id'),))
-        transaction = cursor.fetchone()
-        cursor.execute("DELETE FROM salestran WHERE line=%s", (transaction['line'],))
+        getTransaction = db.cursor(prepared=True, dictionary=True)
+        getTransaction.execute("SELECT * FROM salestran WHERE line=%s", (request.form.get('id'),))
+        transaction = getTransaction.fetchone()
+        deleteTransaction = db.cursor(prepared=True)
+        deleteTransaction.execute("DELETE FROM salestran WHERE line=%s", (transaction['line'],))
 
-        cursor.execute("SELECT count(*) as cnt FROM salestran WHERE client=%s", (transaction['client'],))
-        if cursor['cnt'] == 0:
-            cursor.execute("DELETE FROM osnumber WHERE tableno=%s", (transaction['client'],))
+        getTableTransactions = db.cursor(prepared=True)
+        getTableTransactions.execute("SELECT count(*) FROM salestran WHERE client=%s", (transaction['client'],))
+        transactions = getTableTransactions.fetchone()
+        if transactions[0] == 0:
+            deleteOSNumber = db.cursor(prepared=True)
+            deleteOSNumber.execute("DELETE FROM osnumber WHERE tableno=%s", (transaction['client'],))
 
     return redirect(request.referrer)
+
+@app.route("/transaction/delete", methods=['POST'])
+def print():
+    import tempfile
+    import win32api
+    import win32print
+
+    printerName = 'Bar Printer 2'
+    filename = tempfile.mktemp (".txt")
+    open (filename, "w").write ("This is a test")
+    win32api.ShellExecute(0, "print", filename, '/d:"%s"' % printerName, ".", 0)
+
 
 @app.cli.command()
 @click.option('--b')
