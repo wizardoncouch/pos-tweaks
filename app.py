@@ -7,9 +7,9 @@ from datetime import datetime
 db = connector.connect(
     host="localhost",
     user="root",
-    password="mjm",
+    password="x1root99",
     database="lite",
-    port=3309
+    port=3306
 )
 
 
@@ -224,7 +224,7 @@ def scheduled(b):
             updateItem = db.cursor(prepared=True)
             updateItem.execute("UPDATE `item` set `isinactive`=0 WHERE `itemid`=%s",(p['itemid'],))
 
-            if float(product['price'] != float(p['amt'])):
+            if float(product['price']) != float(p['amt']):
                 updateItem = db.cursor(prepared=True)
                 updateItem.execute("UPDATE `item` set `amt`=%s WHERE `itemid`=%s",(product['price'], p['itemid']))
                 print("{name} price is updated...".format(name=product['name']))
