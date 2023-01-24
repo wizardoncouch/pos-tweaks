@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, make_response, redirect, session
+from flask import Flask, render_template, request, make_response, redirect, session, jsonify
 from mysql import connector
 import requests
 import click
-from datetime import datetime, timedelta
+from datetime import timedelta
 from flask_session import Session
 import json
 
@@ -171,8 +171,6 @@ def transaction():
 
             transactions = json.loads(str(session.get(key, {})))
 
-            print(transactions)
-
             if barcode in transactions:
                 if qty is None:
                     transactions[barcode] = transactions[barcode] + 1
@@ -189,8 +187,8 @@ def transaction():
     return redirect(request.referrer)
  
 
-@app.route("/printer", methods=['POST'])
-def printer():
+@app.route("/accept1", methods=['POST'])
+def accept1():
     if request.form.get('id'):
         getTransaction = db.cursor(prepared=True, dictionary=True)
         getTransaction.execute("SELECT * FROM salestran WHERE line=%s", (request.form.get('id'),))
@@ -261,16 +259,83 @@ def transaction_delete():
 
     return redirect(request.referrer)
 
-# @app.route("/transaction/delete", methods=['POST'])
-# def printer():
-#     import tempfile
-#     import win32api
-#     import win32print
+@app.route("/accept", methods=['POST'])
+def accept():
 
-#     printerName = 'Bar Printer 2'
-#     filename = tempfile.mktemp (".txt")
-#     open (filename, "w").write ("This is a test")
-#     win32api.ShellExecute(0, "print", filename, '/d:"%s"' % printerName, ".", 0)
+    import os
+    import tempfile
+    from fpdf import FPDF
+
+    table = request.form.get('table')
+    if table is None:
+        return make_response(jsonify({'error': 'No table passed'}), 422)
+    
+    key = 'Transactions' + table
+    printables = {}
+    transactions = json.loads(str(session.get(key, {})))
+    barcodes = ','.join(list(transactions.keys()))
+    getItemFromSession = db.cursor(prepared=True, dictionary=True)
+    getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
+    for item in getItemFromSession.fetchall():
+        printer = item['model'] if item['model'] else 'default'
+
+        if not printer in printables:
+            printables[printer] = []
+
+        printables[printer].append({
+            "name": item['itemname'],
+            "qty": transactions[item['barcode']],
+            "unit": item['uom']
+        })
+    files = []
+    for printer in printables:
+        printername = printer
+
+        paperHeight = (len(printables[printer]) * 5) + 30
+        paperWidth = 76
+        filename = tempfile.mktemp(".pdf")
+        pdf = FPDF(orientation='P', unit='mm', format = (paperWidth, paperHeight))
+        pdf.add_page()
+        pdf.set_text_color(0,0,0)
+        pdf.set_font("Arial", size = 15)
+        posY = 8
+        pdf.text(x=6, y=posY, txt = "Order for table #{table}".format(table=table))
+        posY += 8
+        for row in printables[printer]:
+            pdf.set_font("Arial", size = 11)
+            unit = row['unit'] if row['unit'] else 'piece'
+            pdf.text(x=6, y=posY, txt=str(row['qty']).rstrip('.0') + unit.lower() +" - "+row['name'])
+            posY += 5
+        
+        pdf.output(filename, 'F')
+        print(filename)
+        files.append(filename)
+
+    if os.name == 'nt':
+        import PyPDF2
+        import win32print
+        for file in files:
+            pdf = PyPDF2.PdfFileReader(open(file, "rb"))
+            printer_name = win32print.GetDefaultPrinter()
+            hPrinter = win32print.OpenPrinter(printer_name)
+            try:
+                # Set the print job properties
+                job = win32print.StartDocPrinter(hPrinter, 1, ("test print job", None, "RAW"))
+                try:
+                    # Write the data to the printer
+                    for page in range(pdf.getNumPages()):
+                        win32print.StartPagePrinter(hPrinter)
+                        win32print.WritePrinter(hPrinter, pdf.getPage(page).extractText())
+                        win32print.EndPagePrinter(hPrinter)
+                finally:
+                    # End the print job
+                    win32print.EndDocPrinter(hPrinter)
+            finally:
+                # Close the printer handle
+                win32print.ClosePrinter(hPrinter)
+
+    
+    return make_response(jsonify({'success': 'Orders Printed'}))
 
 
 @app.cli.command()
@@ -335,7 +400,7 @@ def scheduled(b):
             if p['groupid'] != product['group']:
                 updateItem = db.cursor(prepared=True)
                 updateItem.execute("UPDATE `item` set `groupid`=%s WHERE `itemid`=%s",(product['group'], p['itemid']))
-                print("{name} group updated to {group}...".format(name=product['name'], category=product['group']))
+                print("{name} group updated to {group}...".format(name=product['name'], group=product['group']))
     
     #set the category to inactive if there are no active item found
     updateCategories = db.cursor()

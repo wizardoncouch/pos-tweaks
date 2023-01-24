@@ -2,9 +2,16 @@
 
 {% block content %}
     <div class="vh-100">
-        <div style="height:60px;" class="bg-light d-flex align-items-center shadow-sm">
-            <a href="/?floor={{data.table.flr|urlencode}}" class="fw-bold ms-1 me-3 btn btn-light fs-4"><i class="bi bi-arrow-left"></i></a>
-            <div class="fs-4 fw-bold text-dark text-capitalize">Order for table: {{data.table.clientname}}</div>
+        <div style="height:60px;" class="bg-light d-flex align-items-center shadow-sm justify-content-between">
+            <div class="d-flex align-items-center">
+                <a href="/?floor={{data.table.flr|urlencode}}" class="fw-bold ms-1 me-3 btn btn-light fs-4"><i class="bi bi-arrow-left"></i></a>
+                <div class="fs-4 fw-bold text-dark text-capitalize">Order for table: {{data.table.clientname}}</div>
+            </div>
+            <div>
+                {%if data.printable%}
+                    <button type="button" data-table="{{data.table.clientname}}" id="accept-order" class="btn btn-success mx-2">Accept Order</button>
+                {%endif%}
+            </div>
         </div>
         <div style="height: calc(100% - 60px);" class="bg-white d-block">
             <div class="row h-100">
