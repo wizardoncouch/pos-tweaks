@@ -192,14 +192,14 @@ def tables(id):
 def transaction():
     if request.form.get('table'):
         table = request.form.get('table')
-        print(dict(session))
         key = 'Transactions' + table
-
         qty = request.form.get('qty')
         if request.form.get('barcode'):
             barcode = request.form.get('barcode')
 
-            transactions = json.loads(str(session.get(key, {})))
+            getSession = session.get(key) 
+            
+            transactions = json.loads(str(getSession)) if getSession else {}
 
             if barcode in transactions:
                 if qty is None:
@@ -273,15 +273,19 @@ def accept1():
 @app.route("/accept", methods=['POST'])
 def accept():
 
-    import escpos
 
-    table = request.form.get('table')
+    getTable = db.cursor(prepared=True, dictionary=True)
+    getTable.execute("SELECT * FROM `client` WHERE `clientname`=%s", (request.form.get('table', ''),))
+    table = getTable.fetchone()
     if table is None:
         return make_response(jsonify({'error': 'No table passed'}), 422)
     
-    key = 'Transactions' + table
+    key = 'Transactions' + table['clientname']
     printables = {}
-    transactions = json.loads(str(session.get(key, {})))
+
+    getSession = session.get(key) 
+    transactions = json.loads(str(getSession)) if getSession else {}
+
     barcodes = ','.join(list(transactions.keys()))
     getItemFromSession = db.cursor(prepared=True, dictionary=True)
     getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
@@ -291,11 +295,11 @@ def accept():
     p.close()
 
     for item in getItemFromSession.fetchall():
-        printer = item['model'] if item['model'] and printers[item['model']] else printers['default']
-        if not printer in printables:
-            printables[printer] = []
+        prntr = item['model'] if item['model'] and printers[item['model']] else printers['default']
+        if not prntr in printables:
+            printables[prntr] = []
 
-        printables[printer].append({
+        printables[prntr].append({
             "name": item['itemname'],
             "qty": transactions[item['barcode']],
             "unit": item['uom']
@@ -335,17 +339,20 @@ def accept():
                                                         VALUES(%s,       %s,           %s,        %s,         %s,      1,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       1,         CURRENT_DATE()       )""",
                                                             (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
 
-    for printer in printables:
-        printerIP =  printers[printer]
-        p = escpos.printer.Network(printerIP)
-        p.text("\n\nOrder for table #{table}\n\n".format(table=table))
+    if os.name == 'nt':
+        from escpos import printer
+        for prntr in printables:
+            printerIP =  printers[prntr]
+            p = printer.Network(printerIP)
+            p.text("\n\nOrder for table #{table}\n\n".format(table=table['clientname']))
 
-        for row in printables[printer]:
-            p.text(str(row['qty']).rstrip('.0') + " - " + row['name'])
+            for row in printables[printer]:
+                p.text(str(row['qty']).rstrip('.0') + " - " + row['name'])
 
-        p.text("------\n")
-        p.cut() 
+            p.text("------\n")
+            p.cut() 
 
+    session[key] = None
     
     return make_response(jsonify({'success': 'Orders Printed'}))
 
