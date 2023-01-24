@@ -1,2 +1,5 @@
+.DS_Store
 scheduled.log
 /__pycache__
+/venv
+/flask_session

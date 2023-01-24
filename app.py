@@ -1,8 +1,11 @@
-from flask import Flask, render_template, request, make_response, redirect
+from flask import Flask, render_template, request, make_response, redirect, session
 from mysql import connector
 import requests
 import click
-from datetime import datetime
+from datetime import datetime, timedelta
+from flask_session import Session
+import json
+
 
 db = connector.connect(
     host="localhost",
@@ -14,9 +17,24 @@ db = connector.connect(
 
 
 app = Flask(__name__)
+app.config['SESSION_PERMANENT'] = True
+app.config["SESSION_TYPE"] = "filesystem"
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+
+Session(app)
+
 
 @app.route("/")
 def floors():
+    # session['transaction-01'] = {
+    #     '10': 1,
+    #     '101': 2
+    # }
+    # table = 10
+
+    # t =  session['transaction-01']
+    # return str(t['10'])
+
     args = request.args
     data = {
         "floor": None,
@@ -39,12 +57,19 @@ def floors():
         getTables = db.cursor(dictionary=True, prepared=True) 
         getTables.execute("""SELECT `clientname`, `client`, `clientid`, `locx`, `locy`, (SELECT count(*) from salestran WHERE client=client.client) as `ordercount` FROM `client` WHERE flr=%s""", (floor,))
         for table in getTables.fetchall():
+            # inuse = False
+            # if table['ordercount'] > 0:
+            #     inuse = True
+            # if session.get("Transactions"+table['clientname']):
+            #     inuse = True
+            
+
             data['tables'].append({
                 "id": table['clientid'],
                 "name": table['clientname'],
                 "left": table['locx'],
                 "top": table['locy'],
-                "inuse": True if table['ordercount'] > 0 else False
+                "inuse": True if table['ordercount'] > 0 or session.get("Transactions"+table['clientname']) else False
             })
 
     return render_template('tables.html', data = data)
@@ -83,16 +108,44 @@ def tables(id):
     getTable = db.cursor(dictionary=True, prepared=True)
     getTable.execute("SELECT * FROM client WHERE clientid=%s", (id,))
     table = getTable.fetchone()
+
     if table:
         getOrders = db.cursor(dictionary=True, prepared=True)
         getOrders.execute("SELECT * FROM salestran where client=%s", (table['client'],))
-        orders = getOrders.fetchall()
+        orders = []
         total = 0
         printable = False
-        for order in orders:
-            total += float(order['isamt']) * float(order['isqty'])
-            if order['isprint'] == 0:
-                printable = True
+        for order in getOrders.fetchall():
+            amount = float(order['isamt']) * float(order['isqty'])
+            orders.append({
+                "id": order['line'],
+                "barcode": order['barcode'],
+                "name": order['itemname'],
+                "qty": order['isqty'],
+                "amount": amount,
+                "printed": order['isprint']
+            })
+            total += amount
+
+        key = "Transactions" + table['clientname']
+        if session.get(key):
+            printable = True
+            transactions = json.loads(str(session.get(key)))
+            barcodes = ','.join(list(transactions.keys()))
+            getItemFromSession = db.cursor(prepared=True, dictionary=True)
+            getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
+            for item in getItemFromSession.fetchall():
+                amount = float(item['amt']) * float(transactions[item['barcode']])
+                orders.append({
+                    "id": 0,
+                    "barcode": item['barcode'],
+                    "name": item['itemname'],
+                    "qty": transactions[item['barcode']],
+                    "amount": amount,
+                    "printed": 0
+                })
+                total += amount
+
         return render_template('order.html', data={
             "categories": categories,
             "products": products,
@@ -107,6 +160,37 @@ def tables(id):
 
 @app.route("/transaction", methods=['POST'])
 def transaction():
+    if request.form.get('table'):
+        table = request.form.get('table')
+        print(dict(session))
+        key = 'Transactions' + table
+
+        qty = request.form.get('qty')
+        if request.form.get('barcode'):
+            barcode = request.form.get('barcode')
+
+            transactions = json.loads(str(session.get(key, {})))
+
+            print(transactions)
+
+            if barcode in transactions:
+                if qty is None:
+                    transactions[barcode] = transactions[barcode] + 1
+                elif float(qty) > 0:
+                    transactions[barcode] = float(qty)
+                else:
+                    del transactions[barcode]
+            else:
+                transactions[barcode] = 1
+
+            print(transactions)
+            session[key] = json.dumps(transactions)
+
+    return redirect(request.referrer)
+ 
+
+@app.route("/printer", methods=['POST'])
+def printer():
     if request.form.get('id'):
         getTransaction = db.cursor(prepared=True, dictionary=True)
         getTransaction.execute("SELECT * FROM salestran WHERE line=%s", (request.form.get('id'),))
@@ -177,16 +261,16 @@ def transaction_delete():
 
     return redirect(request.referrer)
 
-@app.route("/transaction/delete", methods=['POST'])
-def print():
-    import tempfile
-    import win32api
-    import win32print
+# @app.route("/transaction/delete", methods=['POST'])
+# def printer():
+#     import tempfile
+#     import win32api
+#     import win32print
 
-    printerName = 'Bar Printer 2'
-    filename = tempfile.mktemp (".txt")
-    open (filename, "w").write ("This is a test")
-    win32api.ShellExecute(0, "print", filename, '/d:"%s"' % printerName, ".", 0)
+#     printerName = 'Bar Printer 2'
+#     filename = tempfile.mktemp (".txt")
+#     open (filename, "w").write ("This is a test")
+#     win32api.ShellExecute(0, "print", filename, '/d:"%s"' % printerName, ".", 0)
 
 
 @app.cli.command()

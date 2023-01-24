@@ -21,23 +21,26 @@
                             </thead>
                             <tbody>
                                 {%for item in data.orders%}
-                                    <tr class="alert {{'alert-success' if item.isprint else 'alert-warning'}} border-0">
+                                    <tr class="alert {{'alert-success' if item.printed else 'alert-warning'}} border-0">
                                         <th scope="row">{{item.name}}</th>
                                         <td class="text-left">
-                                            {%if item.isprint == 1%}
+                                            {%if item.printed == 1%}
                                                 {{(item.qty|round(2)|string).rstrip('.0')}}
                                             {%else%}
                                                 <form method="post" class="p-0 m-0" action="/transaction">
-                                                    <input type="hidden" name="id" value="{{item.line}}">
+                                                    <input type="hidden" name="table" value="{{data.table.clientname}}">
+                                                    <input type="hidden" name="barcode" value="{{item.barcode}}">
                                                     <input name="qty" class="alert alert-warning border-0 p-0 m-0 border-bottom border-warning rounded-0" size="5" style="text-align: left;" value="{{(item.qty|round(2)|string).rstrip('.0')}}"/>
                                                 </form>
                                             {%endif%}
                                         </td>
                                         <td class="text-end">{{"{:,.2f}".format(item.amount)}}</td>
                                         <td width="25px">
-                                            {%if item.isprint == 0%}
-                                                <form method="post" class="p-0 m-0 d-flex justify-content-end" action="/transaction/delete">
-                                                    <input type="hidden" name="id" value="{{item.line}}">
+                                            {%if item.printed == 0%}
+                                                <form method="post" class="p-0 m-0 d-flex justify-content-end" action="/transaction">
+                                                    <input type="hidden" name="table" value="{{data.table.clientname}}">
+                                                    <input type="hidden" name="barcode" value="{{item.barcode}}">
+                                                    <input type="hidden" name="qty" value="0">
                                                     <button type="submit" class="bg-danger text-white rounded-circle" style="border:0; padding:0 3.5px;"><i class="bi bi-dash"></i></button>
                                                 </form>
                                             {%endif%}
@@ -63,7 +66,7 @@
                                                 <form class="h-100" method="post" action="/transaction">
                                                     <input type="hidden" name="id" value="0"/>
                                                     <input type="hidden" name="barcode" value="{{product.barcode}}" />
-                                                    <input type="hidden" name="table" value="{{data.table.client}}" />
+                                                    <input type="hidden" name="table" value="{{data.table.clientname}}" />
                                                     <button type="submit" class="btn btn-light w-100 h-100 text-button-label">{{product.itemname}}</button>
                                                 </form>
                                             {%else%}
@@ -82,7 +85,7 @@
                                             <form class="p-2 h-100" method="post" action="/transaction">
                                                 <input type="hidden" name="id" value="0"/>
                                                 <input type="hidden" name="barcode" value="{{subProduct.barcode}}" />
-                                                <input type="hidden" name="table" value="{{data.table.client}}" />
+                                                <input type="hidden" name="table" value="{{data.table.clientname}}" />
                                                 <button type="submit" class="btn btn-light w-100 h-100 text-button-label">{{subProduct.itemname}}</button>
                                             </form>
                                         </div>
