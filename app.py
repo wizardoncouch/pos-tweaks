@@ -10,9 +10,9 @@ import json
 db = connector.connect(
     host="localhost",
     user="root",
-    password="x1root99",
+    password="mjm",
     database="lite",
-    port=3306
+    port=3309
 )
 
 
@@ -287,46 +287,23 @@ def accept():
             "qty": transactions[item['barcode']],
             "unit": item['uom']
         })
-    files = []
+
     for printer in printables:
-        printername = printer
-
-        paperHeight = (len(printables[printer]) * 5) + 30
-        paperWidth = 76
-        filename = tempfile.mktemp(".pdf")
-        pdf = FPDF(orientation='P', unit='mm', format = (paperWidth, paperHeight))
-        pdf.add_page()
-        pdf.set_text_color(0,0,0)
-        pdf.set_font("Arial", size = 15)
-        posY = 8
-        pdf.text(x=6, y=posY, txt = "Order for table #{table}".format(table=table))
-        posY += 8
-        for row in printables[printer]:
-            pdf.set_font("Arial", size = 11)
-            unit = row['unit'] if row['unit'] else 'piece'
-            pdf.text(x=6, y=posY, txt=str(row['qty']).rstrip('.0') + unit.lower() +" - "+row['name'])
-            posY += 5
-        
-        pdf.output(filename, 'F')
-        print(filename)
-        files.append(filename)
-
-    if os.name == 'nt':
-        import PyPDF2
-        import win32print
-        for file in files:
-            pdf = PyPDF2.PdfFileReader(open(file, "rb"))
-            printer_name = win32print.GetDefaultPrinter()
+        if os.name == 'nt':
+            import win32print
+            printer_name = printer
+            # printer_name = win32print.GetDefaultPrinter()
             hPrinter = win32print.OpenPrinter(printer_name)
+
+            header = "Order for table #{table}".format(table=table)
             try:
                 # Set the print job properties
-                job = win32print.StartDocPrinter(hPrinter, 1, ("test print job", None, "RAW"))
+                job = win32print.StartDocPrinter(hPrinter, 1, (header, None, "RAW"))
                 try:
-                    # Write the data to the printer
-                    for page in range(pdf.getNumPages()):
-                        win32print.StartPagePrinter(hPrinter)
-                        win32print.WritePrinter(hPrinter, pdf.getPage(page).extractText())
-                        win32print.EndPagePrinter(hPrinter)
+                    win32print.StartPagePrinter(hPrinter)
+                    for row in printables[printer]:
+                        win32print.WritePrinter(hPrinter, str(row['qty']).rstrip('.0') + unit.lower() +" - "+row['name'])
+                    win32print.EndPagePrinter(hPrinter)
                 finally:
                     # End the print job
                     win32print.EndDocPrinter(hPrinter)
