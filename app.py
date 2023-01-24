@@ -3,7 +3,6 @@ from mysql import connector
 import requests
 import click
 from datetime import timedelta
-from flask_session import Session
 import json
 import os
 
@@ -18,15 +17,9 @@ db = connector.connect(
 
 
 app = Flask(__name__)
-app.config['SESSION_PERMANENT'] = True
-app.config["SESSION_TYPE"] = "filesystem"
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
-
-Session(app)
 
 @app.route('/config', methods=["POST", "GET"])
 def config():
-
 
     if request.method == "POST":
         with open("printers.json", "w") as outfile:
@@ -53,8 +46,6 @@ def config():
     
     if 'default' in printers:
         del printers['default']
-
-
 
 
     return render_template('config.html', data = {"printers":printers, "options": options, "default": default})
@@ -157,10 +148,15 @@ def tables(id):
             })
             total += amount
 
-        key = "Transactions" + table['clientname']
-        if session.get(key):
+        key = table['clientname']
+        sessionOrders = {}
+        if os.path.isfile('orders.json'):
+            p = open('orders.json')
+            sessionOrders = dict(json.load(p))
+            p.close()
+        if key in sessionOrders:
             printable = True
-            transactions = json.loads(str(session.get(key)))
+            transactions = sessionOrders[key] if key in sessionOrders else {}
             barcodes = ','.join(list(transactions.keys()))
             getItemFromSession = db.cursor(prepared=True, dictionary=True)
             getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
@@ -192,14 +188,18 @@ def tables(id):
 def transaction():
     if request.form.get('table'):
         table = request.form.get('table')
-        key = 'Transactions' + table
         qty = request.form.get('qty')
         if request.form.get('barcode'):
             barcode = request.form.get('barcode')
-
-            getSession = session.get(key) 
             
-            transactions = json.loads(str(getSession)) if getSession else {}
+            key = table
+            sessionOrders = {}
+            if os.path.isfile('orders.json'):
+                p = open('orders.json')
+                sessionOrders = dict(json.load(p))
+                p.close()
+                
+            transactions = sessionOrders[key] if key in sessionOrders else {}
 
             if barcode in transactions:
                 if qty is None:
@@ -211,62 +211,11 @@ def transaction():
             else:
                 transactions[barcode] = 1
 
-            session[key] = json.dumps(transactions)
+            sessionOrders[key] = transactions
 
-    return redirect(request.referrer)
+            with open("orders.json", "w") as outfile:
+                json.dump(sessionOrders, outfile) 
 
-@app.route("/accept1", methods=['POST'])
-def accept1():
-    if request.form.get('id'):
-        getTransaction = db.cursor(prepared=True, dictionary=True)
-        getTransaction.execute("SELECT * FROM salestran WHERE line=%s", (request.form.get('id'),))
-        transaction = getTransaction.fetchone()
-        if transaction and request.form.get('qty'):
-            updateTransaction = db.cursor(prepared=True)
-            updateTransaction.execute("UPDATE salestran set isqty=%s WHERE line=%s", (request.form.get('qty'), transaction['line']))
-
-    if request.form.get('barcode'):
-        getItem = db.cursor(prepared=True, dictionary=True)
-        getItem.execute("SELECT * FROM item WHERE barcode=%s", (request.form.get('barcode'),))
-        item = getItem.fetchone()
-        getTable = db.cursor(prepared=True, dictionary=True)
-        getTable.execute("SELECT * FROM `client` WHERE `client`=%s", (request.form.get('table'),))
-        table = getTable.fetchone()
-        if table is None:
-            return make_response("Table not specified", 404)
-        
-        getTransaction = db.cursor(prepared=True, dictionary=True)
-        getTransaction.execute("SELECT * FROM salestran WHERE `client`=%s LIMIT 1", (table['client'],))
-        transaction = getTransaction.fetchone()
-        if transaction:
-            osno = transaction['osno']
-            ccode = transaction['ccode']
-            screg = transaction['screg']
-            scsenior = transaction['scsenior']
-            grp = transaction['grp']
-            waiter = transaction['waiter']
-            source = transaction['source']
-        else:
-            getOS = db.cursor(prepared=True)
-            getOS.execute("INSERT INTO osnumber(tableno) VALUES(%s)", (table['client'],))
-            osno = getOS.lastrowid
-            ccode = 'WALK-IN'
-            screg = 10
-            scsenior = 10
-            grp = 'A'
-            waiter = 'Administrator'
-            source = 'WH00001'
-        checkTransaction = db.cursor(prepared=True, dictionary=True)
-        checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s", (table['client'], item['barcode']))
-        existingTransation = checkTransaction.fetchone()
-        if existingTransation:
-            updateTransaction = db.cursor(prepared=True)
-            updateTransaction.execute("UPDATE salestran SET isqty=isqty+1 WHERE line=%s", (existingTransation['line'],))
-        else:
-            insertTransaction = db.cursor(prepared=True)
-            insertTransaction.execute("""INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `isprint`, dateid)
-                                                        VALUES(%s,       %s,           %s,        %s,         %s,      1,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       0,         CURRENT_DATE()       )""",
-                                                            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
     return redirect(request.referrer)
 
 
@@ -280,11 +229,14 @@ def accept():
     if table is None:
         return make_response(jsonify({'error': 'No table passed'}), 422)
     
-    key = 'Transactions' + table['clientname']
+    key = table['clientname']
     printables = {}
-
-    getSession = session.get(key) 
-    transactions = json.loads(str(getSession)) if getSession else {}
+    sessionOrders = {}
+    if os.path.isfile('orders.json'):
+        p = open('orders.json')
+        sessionOrders = dict(json.load(p))
+        p.close()
+    transactions = sessionOrders[key] if key in sessionOrders else {}
 
     barcodes = ','.join(list(transactions.keys()))
     getItemFromSession = db.cursor(prepared=True, dictionary=True)
@@ -347,12 +299,15 @@ def accept():
             p.text("\n\nOrder for table #{table}\n\n".format(table=table['clientname']))
 
             for row in printables[printer]:
-                p.text(str(row['qty']).rstrip('.0') + " - " + row['name'])
+                p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
 
-            p.text("------\n")
+            p.text("\n\n------\n\n")
             p.cut() 
 
-    session[key] = None
+    del sessionOrders[key]
+
+    with open("orders.json", "w") as outfile:
+        json.dump(sessionOrders, outfile) 
     
     return make_response(jsonify({'success': 'Orders Printed'}))
 
