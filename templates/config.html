@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h4 class="m-3 text-center">Printer Configuration</h4>
+            <form method="POST">
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Printer Name</th>
+                        <th scope="col">IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, value in data.printers.items() %}
+                        <tr>
+                            <th scope="row">{{key}}</th>
+                            <td><input type="text" class="form-control" value="{{value}}" name="{{key}}" /></td>
+                        </tr>
+                    {% endfor %}
+                        <tr>
+                            <th scope="row">Default</th>
+                            <td>
+                                <select class="form-control" name="default">
+                                    {% for option in data.options%}
+                                    <option value="{{option}}" {{'selected' if option == data.default}}>{{option}}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                </tbody>
+            </table>
+            <div class="text-center">
+                <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

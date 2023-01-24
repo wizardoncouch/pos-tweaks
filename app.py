@@ -5,6 +5,7 @@ import click
 from datetime import timedelta
 from flask_session import Session
 import json
+import os
 
 
 db = connector.connect(
@@ -23,17 +24,54 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
 
 Session(app)
 
+@app.route('/config', methods=["POST", "GET"])
+def config():
+
+
+    if request.method == "POST":
+        with open("printers.json", "w") as outfile:
+            json.dump(request.form, outfile)
+
+    printers = {}
+    if os.path.isfile('printers.json'):
+        p = open('printers.json')
+        printers = dict(json.load(p))
+        p.close()
+
+    getPrinters = db.cursor(dictionary=True)
+    getPrinters.execute("SELECT distinct(model) as printer from item where model > ''")
+
+    default = printers['default'] if "default" in printers else None
+    options = []
+    for row in getPrinters.fetchall():
+        if default is None:
+            default = row['printer']
+        options.append(row['printer'])
+
+        if row['printer'] not in printers:
+            printers[row['printer']] = ""
+    
+    if 'default' in printers:
+        del printers['default']
+
+
+
+
+    return render_template('config.html', data = {"printers":printers, "options": options, "default": default})
+
+@app.route('/testing')
+def testing():
+    import socket
+    printer_name = "EPSON L5190 Series" # replace with the name of your printer
+    try:
+        printer_ip = socket.gethostbyname(printer_name)
+        return "Printer IP:", printer_ip
+    except:
+        return "Could not find IP address for printer:", printer_name
+    
 
 @app.route("/")
 def floors():
-    # session['transaction-01'] = {
-    #     '10': 1,
-    #     '101': 2
-    # }
-    # table = 10
-
-    # t =  session['transaction-01']
-    # return str(t['10'])
 
     args = request.args
     data = {
@@ -57,13 +95,6 @@ def floors():
         getTables = db.cursor(dictionary=True, prepared=True) 
         getTables.execute("""SELECT `clientname`, `client`, `clientid`, `locx`, `locy`, (SELECT count(*) from salestran WHERE client=client.client) as `ordercount` FROM `client` WHERE flr=%s""", (floor,))
         for table in getTables.fetchall():
-            # inuse = False
-            # if table['ordercount'] > 0:
-            #     inuse = True
-            # if session.get("Transactions"+table['clientname']):
-            #     inuse = True
-            
-
             data['tables'].append({
                 "id": table['clientid'],
                 "name": table['clientname'],
@@ -103,7 +134,6 @@ def tables(id):
             getProducts = db.cursor(dictionary=True, prepared=True)
             getProducts.execute("SELECT * FROM item WHERE `class`=%s ORDER by itemname ASC", (args.get('category'),))
             products = getProducts.fetchall()
-
 
     getTable = db.cursor(dictionary=True, prepared=True)
     getTable.execute("SELECT * FROM client WHERE clientid=%s", (id,))
@@ -181,11 +211,9 @@ def transaction():
             else:
                 transactions[barcode] = 1
 
-            print(transactions)
             session[key] = json.dumps(transactions)
 
     return redirect(request.referrer)
- 
 
 @app.route("/accept1", methods=['POST'])
 def accept1():
@@ -241,30 +269,11 @@ def accept1():
                                                             (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
     return redirect(request.referrer)
 
-@app.route("/transaction/delete", methods=['POST'])
-def transaction_delete():
-    if request.form.get('id'):
-        getTransaction = db.cursor(prepared=True, dictionary=True)
-        getTransaction.execute("SELECT * FROM salestran WHERE line=%s", (request.form.get('id'),))
-        transaction = getTransaction.fetchone()
-        deleteTransaction = db.cursor(prepared=True)
-        deleteTransaction.execute("DELETE FROM salestran WHERE line=%s", (transaction['line'],))
-
-        getTableTransactions = db.cursor(prepared=True)
-        getTableTransactions.execute("SELECT count(*) FROM salestran WHERE client=%s", (transaction['client'],))
-        transactions = getTableTransactions.fetchone()
-        if transactions[0] == 0:
-            deleteOSNumber = db.cursor(prepared=True)
-            deleteOSNumber.execute("DELETE FROM osnumber WHERE tableno=%s", (transaction['client'],))
-
-    return redirect(request.referrer)
 
 @app.route("/accept", methods=['POST'])
 def accept():
 
-    import os
-    import tempfile
-    from fpdf import FPDF
+    import escpos
 
     table = request.form.get('table')
     if table is None:
@@ -276,9 +285,13 @@ def accept():
     barcodes = ','.join(list(transactions.keys()))
     getItemFromSession = db.cursor(prepared=True, dictionary=True)
     getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
-    for item in getItemFromSession.fetchall():
-        printer = item['model'] if item['model'] else 'default'
 
+    p = open('printers.json')
+    printers = dict(json.load(p))
+    p.close()
+
+    for item in getItemFromSession.fetchall():
+        printer = item['model'] if item['model'] and printers[item['model']] else printers['default']
         if not printer in printables:
             printables[printer] = []
 
@@ -288,28 +301,50 @@ def accept():
             "unit": item['uom']
         })
 
-    for printer in printables:
-        if os.name == 'nt':
-            import win32print
-            printer_name = printer
-            # printer_name = win32print.GetDefaultPrinter()
-            hPrinter = win32print.OpenPrinter(printer_name)
+        getTransaction = db.cursor(prepared=True, dictionary=True)
+        getTransaction.execute("SELECT * FROM salestran WHERE `client`=%s LIMIT 1", (table['client'],))
+        transaction = getTransaction.fetchone()
+        if transaction:
+            osno = transaction['osno']
+            ccode = transaction['ccode']
+            screg = transaction['screg']
+            scsenior = transaction['scsenior']
+            grp = transaction['grp']
+            waiter = transaction['waiter']
+            source = transaction['source']
+        else:
+            getOS = db.cursor(prepared=True)
+            getOS.execute("INSERT INTO osnumber(tableno) VALUES(%s)", (table['client'],))
+            osno = getOS.lastrowid
+            ccode = 'WALK-IN'
+            screg = 10
+            scsenior = 10
+            grp = 'A'
+            waiter = 'Administrator'
+            source = 'WH00001'
 
-            header = "Order for table #{table}".format(table=table)
-            try:
-                # Set the print job properties
-                job = win32print.StartDocPrinter(hPrinter, 1, (header, None, "RAW"))
-                try:
-                    win32print.StartPagePrinter(hPrinter)
-                    for row in printables[printer]:
-                        win32print.WritePrinter(hPrinter, str(row['qty']).rstrip('.0') + unit.lower() +" - "+row['name'])
-                    win32print.EndPagePrinter(hPrinter)
-                finally:
-                    # End the print job
-                    win32print.EndDocPrinter(hPrinter)
-            finally:
-                # Close the printer handle
-                win32print.ClosePrinter(hPrinter)
+        checkTransaction = db.cursor(prepared=True, dictionary=True)
+        checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s", (table['client'], item['barcode']))
+        existingTransation = checkTransaction.fetchone()
+        if existingTransation:
+            updateTransaction = db.cursor(prepared=True)
+            updateTransaction.execute("UPDATE salestran SET isqty=isqty+1 WHERE line=%s", (existingTransation['line'],))
+        else:
+            insertTransaction = db.cursor(prepared=True)
+            insertTransaction.execute("""INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `isprint`, dateid)
+                                                        VALUES(%s,       %s,           %s,        %s,         %s,      1,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       1,         CURRENT_DATE()       )""",
+                                                            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
+
+    for printer in printables:
+        printerIP =  printers[printer]
+        p = escpos.printer.Network(printerIP)
+        p.text("\n\nOrder for table #{table}\n\n".format(table=table))
+
+        for row in printables[printer]:
+            p.text(str(row['qty']).rstrip('.0') + " - " + row['name'])
+
+        p.text("------\n")
+        p.cut() 
 
     
     return make_response(jsonify({'success': 'Orders Printed'}))
