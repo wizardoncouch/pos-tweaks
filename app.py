@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, make_response, redirect, sess
 from mysql import connector
 import requests
 import click
-from datetime import timedelta
+from datetime import timedelta, datetime
 import json
 import os
 
@@ -10,9 +10,9 @@ import os
 db = connector.connect(
     host="localhost",
     user="root",
-    password="mjm",
+    password="x1root99",
     database="lite",
-    port=3309
+    port=3306
 )
 
 
@@ -52,6 +52,8 @@ def config():
 
 @app.route('/testing')
 def testing():
+    date = datetime.now()
+    return date.strftime("%b %d, %Y")
     import socket
     printer_name = "EPSON L5190 Series" # replace with the name of your printer
     try:
@@ -222,7 +224,6 @@ def transaction():
 @app.route("/accept", methods=['POST'])
 def accept():
 
-
     getTable = db.cursor(prepared=True, dictionary=True)
     getTable.execute("SELECT * FROM `client` WHERE `clientname`=%s", (request.form.get('table', ''),))
     table = getTable.fetchone()
@@ -236,6 +237,7 @@ def accept():
         p = open('orders.json')
         sessionOrders = dict(json.load(p))
         p.close()
+
     transactions = sessionOrders[key] if key in sessionOrders else {}
 
     barcodes = ','.join(list(transactions.keys()))
@@ -284,25 +286,28 @@ def accept():
         existingTransation = checkTransaction.fetchone()
         if existingTransation:
             updateTransaction = db.cursor(prepared=True)
-            updateTransaction.execute("UPDATE salestran SET isqty=isqty+1 WHERE line=%s", (existingTransation['line'],))
+            salesQty = existingTransation['isqty'] + transactions[item['barcode']] 
+            updateTransaction.execute("UPDATE salestran SET isqty=%s WHERE line=%s", (salesQty, existingTransation['line']))
         else:
             insertTransaction = db.cursor(prepared=True)
             insertTransaction.execute("""INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `isprint`, dateid)
                                                         VALUES(%s,       %s,           %s,        %s,         %s,      1,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       1,         CURRENT_DATE()       )""",
                                                             (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
 
-    if os.name == 'nt':
-        from escpos import printer
-        for prntr in printables:
-            printerIP =  printers[prntr]
-            p = printer.Network(printerIP)
-            p.text("\n\nOrder for table #{table}\n\n".format(table=table['clientname']))
+    from escpos import printer
+    for prntr in printables:
+        printerIP =  printers[prntr]
+        p = printer.Network(printerIP)
+        date = datetime.now()
+        p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y")))
+        p.text("\nOrder for table: {table}\n\n".format(table=table['clientname']))
 
-            for row in printables[printer]:
-                p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
+        for row in printables[printer]:
+            print(row['name'])
+            p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
 
-            p.text("\n\n------\n\n")
-            p.cut() 
+        p.text("\n\n------\n\n")
+        p.cut() 
 
     del sessionOrders[key]
 
