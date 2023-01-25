@@ -10,9 +10,9 @@ import os
 db = connector.connect(
     host="localhost",
     user="root",
-    password="x1root99",
+    password="mjm",
     database="lite",
-    port=3306
+    port=3309
 )
 
 
@@ -299,10 +299,11 @@ def accept():
         printerIP =  printers[prntr]
         p = printer.Network(printerIP)
         date = datetime.now()
+        p.set(text_type='B')
         p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y")))
-        p.text("\nOrder for table: {table}\n\n".format(table=table['clientname']))
+        p.text("\n\nOrder for table: {table}\n\n".format(table=table['clientname']))
 
-        for row in printables[printer]:
+        for row in printables[prntr]:
             print(row['name'])
             p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
 
