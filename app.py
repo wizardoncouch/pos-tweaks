@@ -10,9 +10,9 @@ import os
 db = connector.connect(
     host="localhost",
     user="root",
-    password="x1root99",
+    password="mjm",
     database="lite",
-    port=3306
+    port=3309
 )
 
 
