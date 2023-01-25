@@ -10,9 +10,9 @@ import os
 db = connector.connect(
     host="localhost",
     user="root",
-    password="mjm",
+    password="x1root99",
     database="lite",
-    port=3309
+    port=3306
 )
 
 
@@ -159,20 +159,21 @@ def tables(id):
         if key in sessionOrders:
             printable = True
             transactions = sessionOrders[key] if key in sessionOrders else {}
-            barcodes = ','.join(list(transactions.keys()))
-            getItemFromSession = db.cursor(prepared=True, dictionary=True)
-            getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
-            for item in getItemFromSession.fetchall():
-                amount = float(item['amt']) * float(transactions[item['barcode']])
-                orders.append({
-                    "id": 0,
-                    "barcode": item['barcode'],
-                    "name": item['itemname'],
-                    "qty": transactions[item['barcode']],
-                    "amount": amount,
-                    "printed": 0
-                })
-                total += amount
+            if transactions.keys():
+                barcodes = ','.join(list(transactions.keys()))
+                getItemFromSession = db.cursor(prepared=True, dictionary=True)
+                getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
+                for item in getItemFromSession.fetchall():
+                    amount = float(item['amt']) * float(transactions[item['barcode']])
+                    orders.append({
+                        "id": 0,
+                        "barcode": item['barcode'],
+                        "name": item['itemname'],
+                        "qty": transactions[item['barcode']],
+                        "amount": amount,
+                        "printed": 0
+                    })
+                    total += amount
 
         return render_template('order.html', data={
             "categories": categories,
