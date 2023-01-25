@@ -1,0 +1,112 @@
+
+{% extends 'base.html' %}
+
+{% block content %}
+<div style="position:fixed; height:100%;width:100%; background:red; display:block;">
+    <div style="position:fixed; height:60px; width:100%;" class="d-flex justify-content-between align-items-center bg-light shadow-sm">
+        <div class="d-flex align-items-center">
+            <a href="/?floor={{data.table.flr|urlencode}}" class="fw-bold ms-1 me-3 btn btn-light fs-4"><i class="bi bi-arrow-left"></i></a>
+            <div class="fs-4 fw-bold text-dark text-capitalize">Order for table: {{data.table.clientname}}</div>
+        </div>
+        <div>
+            {%if data.printable%}
+                <button type="button" data-table="{{data.table.clientname}}" id="accept-order" class="btn btn-success mx-2">Accept Order</button>
+            {%endif%}
+        </div>
+    </div>
+    <div style="position:fixed; margin-top:60px; height:calc(100% - 60px);background:green; width:30%;">
+        <div style="height:100%; position:relative;">
+            <div class="d-flex" style="position:absolute; width:100%; top:0; height:30px;">
+                <div  style="width:50%;" class="px-1">Item</div>
+                <div  style="width:15%;">Qty</div>
+                <div  style="width:25%;" class="text-end">Amount</div>
+                <div  style="width:10%;">&nbsp;</div>
+            </div>
+            <div style="position:absolute; top:30px; width:100%; height:calc(100% - 60px); overflow:auto;">
+                <table>
+                    <tbody>
+                        {%for item in data.orders%}
+                            <tr class="alert {{'alert-success' if item.printed else 'alert-warning'}} border-0">
+                                <td style="width:50%;" class="px-1"><small>{{item.name}}</small></th>
+                                <td style="width:15%;" class="text-right">
+                                    {%if item.printed == 1%}
+                                        {{(item.qty|round(2)|string).rstrip('.0')}}
+                                    {%else%}
+                                        <form method="post" class="p-0 m-0" action="/transaction">
+                                            <input type="hidden" name="table" value="{{data.table.clientname}}">
+                                            <input type="hidden" name="barcode" value="{{item.barcode}}">
+                                            <input name="qty" class="alert alert-warning border-0 p-0 m-0 border-bottom border-warning rounded-0" size="5" style="text-align: left;" value="{{(item.qty|round(2)|string).rstrip('.0')}}"/>
+                                        </form>
+                                    {%endif%}
+                                </td>
+                                <td style="width:25%;" class="text-end">{{"{:,.2f}".format(item.amount)}}</td>
+                                <td style="width:10%">
+                                    {%if item.printed == 0%}
+                                        <form method="post" class="p-0 m-0 d-flex justify-content-end" action="/transaction">
+                                            <input type="hidden" name="table" value="{{data.table.clientname}}">
+                                            <input type="hidden" name="barcode" value="{{item.barcode}}">
+                                            <input type="hidden" name="qty" value="0">
+                                            <button type="submit" class="bg-danger text-white rounded-circle" style="border:0; padding:0 3.5px;"><i class="bi bi-dash"></i></button>
+                                        </form>
+                                    {%endif%}
+                                </td>
+                            </tr>
+                        {%endfor%}
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex px-1 justify-content-between" style="position:absolute; width:100%; bottom:0; height:30px;">
+                <span class="text-uppercase fw-b">Total</span>
+                <span style="margin-right:10%;" class="fw-b">{{"{:,.2f}".format(data.total)}}</span>
+            </div>
+        </div>
+    </div>
+    <div style="position:fixed; margin-top:60px; margin-left:30%; height:calc(100% - 60px);background:gray; width:calc(100% - 30%);" class="d-flex">
+        <div style="height:100%; width:calc(100% - 100px); background:pink;">
+            <div style="height:50%; overflow:auto; border-bottom:1px solid gray; padding:5px;">
+                <div class="row row-cols-6">
+                    {%for product in data.products%}
+                        <div class="col h-100 mt-1">
+                            {%if product.barcode > ''%}
+                                <form class="h-100" method="post" action="/transaction">
+                                    <input type="hidden" name="id" value="0"/>
+                                    <input type="hidden" name="barcode" value="{{product.barcode}}" />
+                                    <input type="hidden" name="table" value="{{data.table.clientname}}" />
+                                    <button type="submit" class="btn btn-light w-100 h-100 text-button-label">{{product.itemname}}</button>
+                                </form>
+                            {%else%}
+                                <div class="h-100">
+                                    <a href="?category={{product.class|urlencode}}&group={{product.itemname|urlencode}}" type="button" class="btn btn-light w-100 h-100 text-button-label">{{product.itemname}}</a>
+                                </div>
+                            {%endif%}
+                        </div>
+                    {%endfor%}
+                </div>
+            </div>
+            <div style="height:50%; overflow:auto; padding:5px;">
+                <div class="row row-cols-6">
+                    {%for subProduct in data.subProducts%}
+                        <div class="col h-100">
+                            <form class="p-2 h-100" method="post" action="/transaction">
+                                <input type="hidden" name="id" value="0"/>
+                                <input type="hidden" name="barcode" value="{{subProduct.barcode}}" />
+                                <input type="hidden" name="table" value="{{data.table.clientname}}" />
+                                <button type="submit" class="btn btn-light w-100 h-100 text-button-label">{{subProduct.itemname}}</button>
+                            </form>
+                        </div>
+                    {%endfor%}
+                </div>
+            </div>
+        </div>
+        <div style="height:100%; width:100px; background: violet; overflow:auto;">
+            {%for category in data.categories%}
+                <div class="p-2">
+                    <a href="?category={{category.name|urlencode}}" type="button" class="btn btn-secondary w-100 text-button-label">{{category.name}}</a>
+                </div>
+            {%endfor%}
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

@@ -175,7 +175,7 @@ def tables(id):
                     })
                     total += amount
 
-        return render_template('order.html', data={
+        return render_template('order1.html', data={
             "categories": categories,
             "products": products,
             "subProducts": subProducts,
