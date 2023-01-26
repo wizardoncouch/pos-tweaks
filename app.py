@@ -325,7 +325,8 @@ def accept():
 def scheduled(b):
     products = requests.get('https://pp.d3.net/api.php?action=products&branch=' + b)
     productInactive = db.cursor()
-    productInactive.execute("UPDATE `item` set `isinactive`=1 AND `barcode` > 0")
+    productInactive.execute("UPDATE `item` set `isinactive`=1 WHERE `barcode` != ''")
+    
     if products:
         for product in products.json():
 
