@@ -15,8 +15,11 @@
 </div>
 <script src="{{ url_for('static', filename= 'js/bootstrap.min.js') }}"></script>
 <script src="{{ url_for('static', filename= 'js/jquery-3.6.3.min.js') }}"></script>
-<script type="text/javascript">
-    $(document).ready(function(){
+
+<script>
+
+$(document).ready(function(){
+
         $('#accept-order').click(function(){
             let table = $(this).data('table')
             $.post('/accept', {table: table}).then(function(){
@@ -24,7 +27,55 @@
                 document.location.reload()
             });
         });
-    });
+
+	OptimizeTableView();
+
+});
+
+$(window).resize(function() {
+  OptimizeTableView();
+});
+
+function OptimizeTableView(){
+
+  let maxx = 0;
+  let maxy = 0;
+  let tw   = 100; // table with
+  let th   = 50;  // table height
+  let fx   = 1;
+  let fy   = 1;
+  let ww   = $(window).width();
+  let wh   = $(window).height()-60-20;
+  
+  // get max values
+  $('.tablex').each(function(){
+
+    let x = $(this).data('x');
+    if(x>maxx) maxx = x;
+
+    let y = $(this).data('y')
+    if(y>maxy) maxy = y;
+
+  });
+
+  if(maxx > ww ) fx = ww/(maxx+tw); 
+  if(maxy > wh ) fy = wh/(maxy+th); 
+  
+  // optimze view
+  $('.tablex').each(function(){
+    let x = ($(this).data('x') * fx);
+    let w = (tw * fx);
+    let y = ($(this).data('y') * fy);
+    let h = (th * fy);
+
+    $(this).css('left',x);
+    $(this).css('width',w);
+    $(this).css('top',y);
+    $(this).css('height',h);
+  });
+}
+
+
 </script>
 </body>
 </html>

@@ -101,7 +101,7 @@
         <div style="height:100%; width:100px; overflow:auto;" class="bg-light">
             {%for category in data.categories%}
                 <div style="padding:5px;">
-                    <a href="?category={{category.name|urlencode}}" type="button" style="text-decoration:none; width:100%; border-radius:5px; padding: 5px; text-align:center;" class="text-white bg-secondary text-button-label">{{category.name}}</a>
+                    <a href="?category={{category.name|urlencode}}" style="text-decoration:none; width:100%; border-radius:5px; padding: 5px; text-align:center; overflow:visible; display:block;" class="text-white bg-secondary text-button-label">{{category.name}}</a>
                 </div>
             {%endfor%}
         </div>

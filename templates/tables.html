@@ -1,20 +1,16 @@
+
 {% extends 'base.html' %}
 
 {% block content %}
     <div class="vh-100">
         <div style="height:60px;" class="bg-light d-flex align-items-center justify-content-center">
             {%if data.floors|length > 1%}
-            <div class="dropdown w-100">
-                <a href="javascript:void(0);" class="text-capitalize border-0 fs-4 fw-bold w-100 d-block text-decoration-none text-dark text-center d-flex justify-content-between" data-bs-toggle="dropdown" aria-expanded="false">
-                    <span style="width:24px" class="mx-2"></span>
-                    <span>{{data.floor}} floor</span>
-                    <span class="fw-bold mx-2"><i class="bi bi-chevron-down"></i></span>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end me-2 border-0 shadow-sm">
+            <div class="w-100">
+               	<div class="d-flex align-items-center">
                     {%for floor in data.floors%}
-                    <li><a class="dropdown-item d-flex justify-content-between" href="?floor={{floor.name|urlencode}}">{{floor.name}} floor {%if floor.name == data.floor%}<i class="bi bi-check text-success"></i>{%endif%}</a></li>
+                    <a class="d-flex justify-content-between text-decoration-none btn btn-sm {{ 'text-success fw-bold' if floor.name == data.floor else 'text-secondary'}}" href="?floor={{floor.name|urlencode}}">{{floor.name}} floor {%if floor.name == data.floor%}<i class="bi bi-check text-success"></i>{%endif%}</a>
                     {%endfor%}
-                </ul>
+                </div>
             </div>
             {%else%}
                 <div class="fs-4 fw-bold text-dark text-capitalize">{{data.floor}} floor</div>
@@ -23,7 +19,7 @@
         </div>
         <div style="height: calc(100% - 60px); overflow:auto;" class="bg-white d-block position-relative">
             {%for table in data.tables%}
-            <a href="/table/{{table.id}}" style="position:absolute; top:{{table.top}}px; left:{{table.left}}px; height:50px; width:100px;" class="alert {{ 'alert-success' if table.inuse else 'alert-warning' }} text-decoration-none rounded-3 shadow-sm d-flex align-items-center justify-content-center fw-bold">
+            <a href="/table/{{table.id}}"  data-x="{{table.left}}" data-y="{{table.top}}" style="position:absolute; top:{{table.top}}px; left:{{table.left}}px; height:50px; width:100px;" class="tablex alert {{ 'alert-success' if table.inuse else 'alert-warning' }} text-decoration-none rounded-3 shadow-sm d-flex align-items-center justify-content-center fw-bold">
                 <div>{{table.name}}</div>
             </a>
             {%endfor%}
