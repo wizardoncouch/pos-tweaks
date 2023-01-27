@@ -292,8 +292,8 @@ def accept():
         else:
             insertTransaction = db.cursor(prepared=True)
             insertTransaction.execute("""INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `isprint`, dateid)
-                                                        VALUES(%s,       %s,           %s,        %s,         %s,      1,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       1,         CURRENT_DATE()       )""",
-                                                            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
+                                                        VALUES(%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       1,         CURRENT_DATE()       )""",
+                                                            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], transactions[item['barcode']], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
 
     from escpos import printer
     for prntr in printables:
@@ -302,14 +302,14 @@ def accept():
         p = printer.Network(printerIP)
         date = datetime.now()
         p.set(font='B')
-        p.text("-----------------------------------------------------------------")
+        p.text("----------------------------------------")
         p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
         p.text("\n\nOrder for table: {table}\n\n".format(table=table['clientname']))
 
         for row in printables[prntr]:
             print(row['name'])
             p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
-
+        p.text("\n----------------------------------------\n\n\n")
         p.cut() 
 
     del sessionOrders[key]
