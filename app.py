@@ -134,7 +134,7 @@ def tables(id):
 
     if table:
         getOrders = db.cursor(dictionary=True, prepared=True)
-        getOrders.execute("SELECT * FROM salestran where client=%s", (table['client'],))
+        getOrders.execute("SELECT * FROM salestran where client=%s ORDER by encoded ASC", (table['client'],))
         orders = []
         total = 0
         printable = False
@@ -298,17 +298,18 @@ def accept():
     from escpos import printer
     for prntr in printables:
         printerIP =  printers[prntr]
+
         p = printer.Network(printerIP)
         date = datetime.now()
-        p.set(text_type='B')
-        p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y")))
+        p.set(font='B')
+        p.text("-----------------------------------------------------------------")
+        p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
         p.text("\n\nOrder for table: {table}\n\n".format(table=table['clientname']))
 
         for row in printables[prntr]:
             print(row['name'])
             p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
 
-        p.text("\n\n------\n\n")
         p.cut() 
 
     del sessionOrders[key]
@@ -324,7 +325,8 @@ def accept():
 def scheduled(b):
     products = requests.get('https://pp.d3.net/api.php?action=products&branch=' + b)
     productInactive = db.cursor()
-    productInactive.execute("UPDATE `item` set `isinactive`=1 AND `barcode` > 0")
+    productInactive.execute("UPDATE `item` set `isinactive`=1 WHERE `barcode` != ''")
+    
     if products:
         for product in products.json():
 
