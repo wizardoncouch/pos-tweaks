@@ -19,23 +19,274 @@
 
 <script>
 
-$(document).ready(function(){
+let markedBg = '#4788ff';
+let markedColor = '#fff';
 
-        $('#accept-order').click(function(){
-            let table = $(this).data('table')
-            $.post('/accept', {table: table}).then(function(){
-                alert('Orders Printed')
-                document.location.reload()
-            });
+$(document).ready(function(){
+  $('#remarksModal').hide();
+
+  $('.orderLine').each(function() {
+    restoreColors();
+  })
+
+  $('.addQty').addClass('disabled');
+  $('.minusQty').addClass('disabled');
+  $('.remarks').addClass('disabled');
+
+  $(document).on('click', '#accept-order', function() {
+      let table = $(this).data('table')
+
+      let items = [];
+
+      $('.orderLine').each(function() {
+
+        if(!$(this).hasClass('printed')) {
+          let barcode = $(this).data('barcode')+'';
+          let nameEl = $(this).find('.itemName');
+          let qtyEl = $(this).find('.itemQty');
+          let priceEl = $(this).find('.itemPrice');
+          let remarksEl = $(this).find('.itemRemarks');
+
+          items.push({
+            'barcode': barcode,
+            'name': $.trim(nameEl.text()),
+            'qty': parseInt($.trim(qtyEl.text())),
+            'price': $.trim(priceEl.text()),
+            'remarks': $.trim(remarksEl.text())
+          })
+        }
+      });
+
+      let payload = {
+        "table_name": table,
+        "order_items": items,
+      }
+
+      if(items.length > 0) {
+        $.ajax({
+          url:'/accept',
+          type:"POST",
+          data: JSON.stringify(payload),
+          contentType:"application/json; charset=utf-8",
+          dataType:"json",
+          success: function(){
+            alert('Orders Printed')
+            document.location.reload()
+          }
         });
+      }
+  });
 
 	OptimizeTableView();
+
+  $(document).on('click', '#category', function() {
+    let category = $(this).data('category');
+
+    let path = '/products?category='+category;
+    getProducts(path);
+  })
+
+  $(document).on('click', '.showMoreProducts', function() {
+    let category = $(this).data('category');
+    let group = $(this).data('group');
+
+    let path = '/products?category='+category+'&group='+group;
+    getProducts(path);
+  })
+
+  $('#search').on('input', function(e) {
+    if($(this).val().length >= 3) {
+      let path = '/products?search='+$('#search').val();
+      getProducts(path);
+    }
+  })
+  .focusout(function() {
+    $('#search').blur();
+  })
+  .keyup(function(e) {
+    if(e.keyCode == 13) $('#search').blur();
+  });
+
+  $(document).on('click', '.orderLine', function() {
+    restoreColors();
+    markedLine($(this));
+  });
+
+  $(document).on('click', '.addItem', function() {
+    $('#remarksModal').hide();
+
+    let barcode = $(this).data('barcode');
+    let name = $(this).data('name');
+    let price = parseFloat($(this).data('price')).toFixed(2);
+    let qty = 1;
+
+    appendItem(barcode, name, qty, price);
+    totalPrice();
+    activateTools();
+  });
+
+  $('.addQty').click(function() {
+    if($('.active').hasClass('printed')) {
+      let nameEl = $('.active').find('.itemName');
+      let qtyEl = $('.active').find('.itemQty');
+      let priceEl = $('.active').find('.itemPrice');
+      let barcode = $('.active').data('barcode');
+
+      appendItem(barcode, nameEl.text(), 1, (parseFloat(priceEl.text())/parseInt(qtyEl.text())).toFixed(2));
+      totalPrice();
+      activateTools()
+    } else {
+      let qtyEl = $('.active').find('.itemQty');
+      let priceEl = $('.active').find('.itemPrice');
+      let qty = parseInt(qtyEl.text()) + 1;
+      let oPrice = parseFloat(priceEl.text()) / parseInt(qtyEl.text());
+      let price = (oPrice * qty).toFixed(2);
+      qtyEl.text(qty);
+      priceEl.text(price);
+      totalPrice();
+    }
+  });
+
+  $('.minusQty').click(function() {
+    $('#remarksModal').hide();
+
+    if(!$('.active').hasClass('printed')) {
+      let priceEl = $('.active').find('.itemPrice');
+      let qtyEl = $('.active').find('.itemQty');
+      let oPrice = parseFloat(priceEl.text()) / parseInt(qtyEl.text());
+      let price = parseFloat(priceEl.text()) - oPrice;
+      let qty = parseInt(qtyEl.text()) - 1;
+
+      if(qty <= 0) {
+        $('.active').remove();
+        return totalPrice();
+      }
+
+      qtyEl.text(qty);
+      priceEl.text(price.toFixed(2));
+      totalPrice();
+    }
+  });
+
+  $('.remarks').click(function() {
+    if($('.active').hasClass('printed')) return false;
+
+    let barcode = $('.active').data('barcode');
+    $.post('/remarks', {"barcode": barcode}).then(function(response){
+        //$('#remarkList').show();
+        $('#remarksModal').show();
+
+        let nameEl = $('.active').find('.itemName');
+        $('#remarkProduct').text(nameEl.text())
+
+        $('#remarkOptions').find('button')
+          .remove()
+          .end()
+
+        response.forEach(obj => {
+          $('#remarkOptions').append('<div><button id="remarkOption" type="button" class="btn btn-light w-100 mb-2" value="'+obj.remarks+'">'+obj.remarks+'</button></div>')
+        });
+    });
+  });
+
+  $('#remarkInput').on('change', function() {
+    let remarksEl = $('.active').find('.itemRemarks');
+    remarksEl.text($(this).val());
+    $('#remarksModal').hide();
+    $('#remarkInput').blur();
+  }).focusout(function() {
+    $('#remarksModal').hide();
+  });
+
+  $(document).on('click', '#remarkOption', function() {
+    let remarksEl = $('.active').find('.itemRemarks');
+
+    let remark = remarksEl.text()+' '+$(this).val();
+
+    remarksEl.text(remark);
+    $('#remarkInput').val(remark)
+
+    $('#remarksModal').hide();
+  });
+
+  $('#closeRemarks').click(function() {
+    $('#remarksModal').hide();
+  });
 
 });
 
 $(window).resize(function() {
   OptimizeTableView();
 });
+
+function appendItem(barcode, name, qty, price) {
+  restoreColors();
+  $("#orderTable").append('<tr data-barcode="'+barcode+'" class="orderLine active alert alert-warning border-0" style="background-color:'+markedBg+'; color:'+markedColor+'"><td style="width:50%; padding:3px;"><small class="itemName">'+name.toUpperCase()+'</small><div class="itemRemarks" style="color:red;font-size:11px"></div></td><td style="width:15%; padding:3px;" class="text-end itemQty">'+qty+'</td><td style="width:35%; padding:3px;" class="text-end itemPrice">'+price+'</td></tr>');
+}
+
+function markedLine(el) {
+  el.addClass('active');
+  el.css('background-color', markedBg);
+  el.css('color', markedColor);
+
+  activateTools();
+}
+
+function restoreColors() {
+  $('.orderLine').each(function() {
+    $(this).removeClass('active');
+
+    let bgColor = $(this).hasClass('printed') ? '#0bd480' : '#e5ed98';
+    let textColor = '#000';
+    $(this).css('background-color', bgColor);
+    $(this).css('color', textColor);
+  });
+}
+
+function activateTools() {
+  if($('.active').hasClass('printed')){
+    $('.addQty').removeClass('disabled');
+    $('.minusQty').addClass('disabled');
+    $('.remarks').addClass('disabled');
+  } else {
+    $('.addQty').removeClass('disabled');
+    $('.minusQty').removeClass('disabled');
+    $('.remarks').removeClass('disabled');
+  }
+}
+
+function getProducts(path) {
+  $.get(path).then(function(response){
+      let products = response['products'];
+      let subProducts = response['subProducts'];
+
+      $('#products').find('.product')
+        .remove()
+        .end()
+
+      products.forEach(product => {
+        $('#products').append('<div class="col h-100 mt-1 product"><div class="col h-100 '+(product.barcode > '' ? 'addItem' : 'showMoreProducts')+'" data-barcode="'+product.barcode+'" data-name="'+product.itemname+'"  data-price="'+product.amt+'" data-category="'+product.class+'" data-group="'+product.itemname+'"><button type="button" class="btn btn-light w-100 h-100 text-button-label">'+product.itemname+'</button></div></div>')
+      });
+
+      $('#subProducts').find('.subProduct')
+        .remove()
+        .end()
+
+      subProducts.forEach(subProduct => {
+        $('#subProducts').append('<div class="col h-100 addItem subProduct" data-barcode="'+subProduct.barcode+'" data-name="'+subProduct.itemname+'"  data-price="'+subProduct.amt+'"><button type="button" class="btn btn-light w-100 h-100 text-button-label">'+subProduct.itemname+'</button></div>')
+      });
+    });
+}
+
+function totalPrice() {
+  let total = 0;
+  $('.orderLine').each(function() {
+    let priceEl = $(this).find('.itemPrice');
+    total += parseFloat($.trim(priceEl.text()));
+  });
+
+  $('#total').text(total.toFixed(2));
+}
 
 function OptimizeTableView(){
 

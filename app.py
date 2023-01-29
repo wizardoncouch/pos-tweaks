@@ -10,9 +10,9 @@ import os
 db = connector.connect(
     host="localhost",
     user="root",
-    password="mjm",
+    password="",
     database="lite",
-    port=3309
+    port=3306
 )
 
 
@@ -105,8 +105,104 @@ def tables(id):
     getCategories.execute("SELECT id, class as name FROM tblmenulist where isinactive=0 and iscategory=1 order by class asc")
     categories = getCategories.fetchall()
 
+    # products = []
+    # subProducts = []
+    # if args.get('category'):
+    #     getGroups = db.cursor(dictionary=True, prepared=True)
+    #     getGroups.execute("SELECT DISTINCT(groupid) as itemname, class, '' as barcode FROM `item` WHERE `class`=%s AND `groupid` > ''", (args.get('category'),))
+    #     groups = getGroups.fetchall()
+    #     if groups:
+    #         products = groups
+    #         if args.get('group'):
+    #             getProductsByGroup = db.cursor(dictionary=True, prepared=True)
+    #             getProductsByGroup.execute("SELECT * FROM item WHERE `class`=%s AND `groupid`=%s ORDER by itemname ASC", (args.get('category'), args.get('group')))
+    #             subProducts = getProductsByGroup.fetchall()
+
+    #         #for not grouped products
+    #         getProducts = db.cursor(dictionary=True, prepared=True)
+    #         getProducts.execute("SELECT * FROM item WHERE `class`=%s and groupid='' ORDER by itemname ASC", (args.get('category'),))
+    #         for p in getProducts.fetchall():
+    #             products.append(p)
+    #     else:
+    #         getProducts = db.cursor(dictionary=True, prepared=True)
+    #         getProducts.execute("SELECT * FROM item WHERE `class`=%s ORDER by itemname ASC", (args.get('category'),))
+    #         products = getProducts.fetchall()
+    
+    # if args.get('search'):
+    #     getSearchProducts = db.cursor(dictionary=True, prepared=True)
+    #     stext = '%'+args.get('search')+'%'
+    #     getSearchProducts.execute("SELECT * FROM item WHERE `itemname` LIKE %s",(stext,))
+    #     products = getSearchProducts.fetchall()
+
+    getTable = db.cursor(dictionary=True, prepared=True)
+    getTable.execute("SELECT * FROM client WHERE clientid=%s", (id,))
+    table = getTable.fetchone()
+
+    if table:
+        getOrders = db.cursor(dictionary=True, prepared=True)
+        getOrders.execute("SELECT * FROM salestran where client=%s ORDER by encoded ASC", (table['client'],))
+        orders = []
+        total = 0
+        printable = False
+        for order in getOrders.fetchall():
+            amount = float(order['isamt']) * float(order['isqty'])
+            orders.append({
+                "id": order['line'],
+                "barcode": order['barcode'],
+                "name": order['itemname'],
+                "qty": order['isqty'],
+                "amount": amount,
+                "remarks": order['remarks'],
+                "printed": order['isprint']
+            })
+            total += amount
+
+        # key = table['clientname']
+        # sessionOrders = {}
+        # if os.path.isfile('orders.json'):
+        #     p = open('orders.json')
+        #     sessionOrders = dict(json.load(p))
+        #     p.close()
+        # if key in sessionOrders:
+        #     printable = True
+        #     transactions = sessionOrders[key] if key in sessionOrders else {}
+        #     if transactions.keys():
+        #         barcodes = ','.join(list(transactions.keys()))
+        #         getItemFromSession = db.cursor(prepared=True, dictionary=True)
+        #         getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
+        #         for item in getItemFromSession.fetchall():
+        #             amount = float(item['amt']) * float(transactions[item['barcode']])
+        #             orders.append({
+        #                 "id": 0,
+        #                 "barcode": item['barcode'],
+        #                 "name": item['itemname'],
+        #                 "qty": transactions[item['barcode']],
+        #                 "amount": amount,
+        #                 "printed": 0
+        #             })
+        #             total += amount
+
+        return render_template('order1.html', data={
+            "categories": categories,
+            # "products": products,
+            # "subProducts": subProducts,
+            "table":table, 
+            "orders": orders, 
+            "total": total, 
+            "printable": printable
+        })
+    else:
+        return make_response("Table not found", 404)
+
+@app.route("/products", methods=['GET'])
+def products():
+    args = request.args
+
     products = []
     subProducts = []
+
+    print(args.get('category'))
+
     if args.get('category'):
         getGroups = db.cursor(dictionary=True, prepared=True)
         getGroups.execute("SELECT DISTINCT(groupid) as itemname, class, '' as barcode FROM `item` WHERE `class`=%s AND `groupid` > ''", (args.get('category'),))
@@ -127,71 +223,24 @@ def tables(id):
             getProducts = db.cursor(dictionary=True, prepared=True)
             getProducts.execute("SELECT * FROM item WHERE `class`=%s ORDER by itemname ASC", (args.get('category'),))
             products = getProducts.fetchall()
+    
+    if args.get('search'):
+        getSearchProducts = db.cursor(dictionary=True, prepared=True)
+        stext = '%'+args.get('search')+'%'
+        getSearchProducts.execute("SELECT * FROM item WHERE `itemname` LIKE %s",(stext,))
+        products = getSearchProducts.fetchall()
 
-    getTable = db.cursor(dictionary=True, prepared=True)
-    getTable.execute("SELECT * FROM client WHERE clientid=%s", (id,))
-    table = getTable.fetchone()
-
-    if table:
-        getOrders = db.cursor(dictionary=True, prepared=True)
-        getOrders.execute("SELECT * FROM salestran where client=%s ORDER by encoded ASC", (table['client'],))
-        orders = []
-        total = 0
-        printable = False
-        for order in getOrders.fetchall():
-            amount = float(order['isamt']) * float(order['isqty'])
-            orders.append({
-                "id": order['line'],
-                "barcode": order['barcode'],
-                "name": order['itemname'],
-                "qty": order['isqty'],
-                "amount": amount,
-                "printed": order['isprint']
-            })
-            total += amount
-
-        key = table['clientname']
-        sessionOrders = {}
-        if os.path.isfile('orders.json'):
-            p = open('orders.json')
-            sessionOrders = dict(json.load(p))
-            p.close()
-        if key in sessionOrders:
-            printable = True
-            transactions = sessionOrders[key] if key in sessionOrders else {}
-            if transactions.keys():
-                barcodes = ','.join(list(transactions.keys()))
-                getItemFromSession = db.cursor(prepared=True, dictionary=True)
-                getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
-                for item in getItemFromSession.fetchall():
-                    amount = float(item['amt']) * float(transactions[item['barcode']])
-                    orders.append({
-                        "id": 0,
-                        "barcode": item['barcode'],
-                        "name": item['itemname'],
-                        "qty": transactions[item['barcode']],
-                        "amount": amount,
-                        "printed": 0
-                    })
-                    total += amount
-
-        return render_template('order1.html', data={
-            "categories": categories,
-            "products": products,
-            "subProducts": subProducts,
-            "table":table, 
-            "orders": orders, 
-            "total": total, 
-            "printable": printable
-        })
-    else:
-        return make_response("Table not found", 404)
+    return make_response({
+        "products": products,
+        "subProducts": subProducts
+    })
 
 @app.route("/transaction", methods=['POST'])
 def transaction():
     if request.form.get('table'):
         table = request.form.get('table')
         qty = request.form.get('qty')
+
         if request.form.get('barcode'):
             barcode = request.form.get('barcode')
             
@@ -221,27 +270,52 @@ def transaction():
 
     return redirect(request.referrer)
 
+@app.route("/remarks", methods=['POST'])
+def getRemarks():
+    getTable = db.cursor(prepared=True, dictionary=True)
+    getTable.execute("SELECT * FROM `item` WHERE `barcode`=%s", (request.form.get('barcode'),))
+    item = getTable.fetchone()
+    
+    getRemarksTable = db.cursor(prepared=True, dictionary=True)
+    getRemarksTable.execute("""SELECT st.remarks, count(*) as count
+        FROM `item` as i
+        LEFT JOIN `salestran` as st ON i.barcode = st.barcode
+        WHERE `class`=%s AND st.remarks > ''
+        GROUP BY st.remarks
+        ORDER BY count desc""", (item['class'],))
+    remarks = getRemarksTable.fetchall()
+
+    return make_response(remarks)
 
 @app.route("/accept", methods=['POST'])
 def accept():
+    form = request.get_json()
+
+    table = form.get('table_name')
+    order_items = form.get('order_items')
+
+    barcodes = []
+    for item in order_items:
+        barcodes.append(item['barcode'])
 
     getTable = db.cursor(prepared=True, dictionary=True)
-    getTable.execute("SELECT * FROM `client` WHERE `clientname`=%s", (request.form.get('table', ''),))
+    getTable.execute("SELECT * FROM `client` WHERE `clientname`=%s", (table,))
     table = getTable.fetchone()
     if table is None:
         return make_response(jsonify({'error': 'No table passed'}), 422)
     
     key = table['clientname']
     printables = {}
-    sessionOrders = {}
-    if os.path.isfile('orders.json'):
-        p = open('orders.json')
-        sessionOrders = dict(json.load(p))
-        p.close()
+    # sessionOrders = {}
+    # if os.path.isfile('orders.json'):
+    #     p = open('orders.json')
+    #     sessionOrders = dict(json.load(p))
+    #     p.close()
 
-    transactions = sessionOrders[key] if key in sessionOrders else {}
+    # transactions = sessionOrders[key] if key in sessionOrders else {}
 
-    barcodes = ','.join(list(transactions.keys()))
+    # barcodes = ','.join(list(transactions.keys()))
+    barcodes = ','.join(list(barcodes))
     getItemFromSession = db.cursor(prepared=True, dictionary=True)
     getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
 
@@ -254,9 +328,13 @@ def accept():
         if not prntr in printables:
             printables[prntr] = []
 
+        filtered_order_items = list(filter(lambda x: x['barcode'] == item['barcode'], order_items))
+        order_item_qty = filtered_order_items[0]['qty'];
+        order_item_remarks = filtered_order_items[0]['remarks'];
+
         printables[prntr].append({
-            "name": item['itemname'],
-            "qty": transactions[item['barcode']],
+            "name": item['itemname'] + (" ("+order_item_remarks+")" if order_item_remarks else ""),
+            "qty": order_item_qty,
             "unit": item['uom']
         })
 
@@ -283,17 +361,18 @@ def accept():
             source = 'WH00001'
 
         checkTransaction = db.cursor(prepared=True, dictionary=True)
-        checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s", (table['client'], item['barcode']))
+        # checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s", (table['client'], item['barcode']))
+        checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s and remarks=%s", (table['client'], item['barcode'], order_item_remarks))
         existingTransation = checkTransaction.fetchone()
         if existingTransation:
             updateTransaction = db.cursor(prepared=True)
-            salesQty = existingTransation['isqty'] + transactions[item['barcode']] 
-            updateTransaction.execute("UPDATE salestran SET isqty=%s WHERE line=%s", (salesQty, existingTransation['line']))
+            salesQty = existingTransation['isqty'] + order_item_qty
+            updateTransaction.execute("UPDATE salestran SET isqty=%s, remarks=%s WHERE line=%s", (salesQty, order_item_remarks, existingTransation['line']))
         else:
             insertTransaction = db.cursor(prepared=True)
-            insertTransaction.execute("""INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `isprint`, dateid)
-                                                        VALUES(%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       1,         CURRENT_DATE()       )""",
-                                                            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], transactions[item['barcode']], item['uom'], grp, waiter, osno, screg, scsenior, ccode, source))
+            insertTransaction.execute("""INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
+                                                        VALUES(%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       %s,        1,         CURRENT_DATE()       )""",
+                                                            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], order_item_qty, item['uom'], grp, waiter, osno, screg, scsenior, ccode, source, order_item_remarks))
 
     from escpos import printer
     for prntr in printables:
@@ -312,10 +391,10 @@ def accept():
         p.text("\n----------------------------------------\n\n\n")
         p.cut() 
 
-    del sessionOrders[key]
+    # del sessionOrders[key]
 
-    with open("orders.json", "w") as outfile:
-        json.dump(sessionOrders, outfile) 
+    # with open("orders.json", "w") as outfile:
+    #     json.dump(sessionOrders, outfile) 
     
     return make_response(jsonify({'success': 'Orders Printed'}))
 
