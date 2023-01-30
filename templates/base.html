@@ -70,12 +70,18 @@ $(document).ready(function(){
           contentType:"application/json; charset=utf-8",
           dataType:"json",
           success: function(){
-            alert('Orders Printed')
-            document.location.reload()
+            alert('Orders Printed');
+
+            $('#newOrdersTable').find('.orderLine')
+                .remove()
+                .end()
+            getOrders();
           }
         });
       }
   });
+
+  getOrders();
 
 	OptimizeTableView();
 
@@ -127,12 +133,13 @@ $(document).ready(function(){
 
   $('.addQty').click(function() {
     if($('.active').hasClass('printed')) {
+      let barcode = $('.active').data('barcode');
       let nameEl = $('.active').find('.itemName');
       let qtyEl = $('.active').find('.itemQty');
       let priceEl = $('.active').find('.itemPrice');
-      let barcode = $('.active').data('barcode');
+      let remarksEl = $('.active').find('.itemRemarks');
 
-      appendItem(barcode, nameEl.text(), 1, (parseFloat(priceEl.text())/parseInt(qtyEl.text())).toFixed(2));
+      appendItem(barcode, nameEl.text(), 1, (parseFloat(priceEl.text())/parseInt(qtyEl.text())).toFixed(2), remarksEl.text());
       totalPrice();
       activateTools()
     } else {
@@ -147,7 +154,7 @@ $(document).ready(function(){
     }
   });
 
-  $('.minusQty').click(function() {
+  $(document).on('click', '.minusQty', function() {
     $('#remarksModal').hide();
 
     if(!$('.active').hasClass('printed')) {
@@ -165,15 +172,38 @@ $(document).ready(function(){
       qtyEl.text(qty);
       priceEl.text(price.toFixed(2));
       totalPrice();
+    } else {
+      let line = $('.active').data('line');
+      let client = $('#tablename').data('client');
+      let barcode = $('.active').data('barcode');
+
+      let payload = {"client": client, "line": line, "barcode": barcode};
+
+      if(window.confirm('Void this item?') == true) {
+        $.ajax({
+          url:'/voidItem',
+          type:"POST",
+          data: JSON.stringify(payload),
+          contentType:"application/json; charset=utf-8",
+          dataType:"json",
+          success: function(response){
+            console.log('void response', response)
+            alert('Item Cancelled')
+            getOrders();
+          }
+        });
+      }
     }
   });
 
   $('.remarks').click(function() {
     if($('.active').hasClass('printed')) return false;
 
+    let remarksEl = $('.active').find('.itemRemarks');
+    $('#remarkInput').val(remarksEl.text())
+
     let barcode = $('.active').data('barcode');
     $.post('/remarks', {"barcode": barcode}).then(function(response){
-        //$('#remarkList').show();
         $('#remarksModal').show();
 
         let nameEl = $('.active').find('.itemName');
@@ -219,9 +249,10 @@ $(window).resize(function() {
   OptimizeTableView();
 });
 
-function appendItem(barcode, name, qty, price) {
+function appendItem(barcode, name, qty, price, remarks = '') {
   restoreColors();
-  $("#orderTable").append('<tr data-barcode="'+barcode+'" class="orderLine active alert alert-warning border-0" style="background-color:'+markedBg+'; color:'+markedColor+'"><td style="width:50%; padding:3px;"><small class="itemName">'+name.toUpperCase()+'</small><div class="itemRemarks" style="color:red;font-size:11px"></div></td><td style="width:15%; padding:3px;" class="text-end itemQty">'+qty+'</td><td style="width:35%; padding:3px;" class="text-end itemPrice">'+price+'</td></tr>');
+  $("#newOrdersTable").append('<tr data-barcode="'+barcode+'" class="orderLine active alert alert-warning border-0" style="background-color:'+markedBg+'; color:'+markedColor+'"><td style="width:50%; padding:3px;"><small class="itemName">'+name.toUpperCase()+'</small><div class="itemRemarks" style="color:red;font-size:11px">'+remarks+'</div></td><td style="width:15%; padding:3px;" class="text-end itemQty">'+qty+'</td><td style="width:35%; padding:3px;" class="text-end itemPrice">'+price+'</td></tr>');
+  $("#orderContainer").animate({ scrollTop: $('#orderContainer').prop("scrollHeight")}, 1000);
 }
 
 function markedLine(el) {
@@ -246,13 +277,31 @@ function restoreColors() {
 function activateTools() {
   if($('.active').hasClass('printed')){
     $('.addQty').removeClass('disabled');
-    $('.minusQty').addClass('disabled');
+    $('.minusQty').removeClass('disabled');
     $('.remarks').addClass('disabled');
   } else {
     $('.addQty').removeClass('disabled');
     $('.minusQty').removeClass('disabled');
     $('.remarks').removeClass('disabled');
   }
+}
+
+function getOrders() {
+  let client = $('#tablename').data('client');
+  $.get('/orders?client='+client).then(function(response){
+    let orders = response.orders;
+    console.log(orders);
+
+    $('#printedOrdersTable').find('.printed')
+        .remove()
+        .end()
+
+    orders.forEach(item => {
+      $("#printedOrdersTable").append('<tr data-line="'+item.id+'" data-client="'+item.client+'" data-barcode="'+item.barcode+'" class="orderLine alert printed border-0"><td style="width:50%; padding:3px;"><small class="itemName">'+item.name+'</small><div style="color:red;font-size:11px" class="itemRemarks">'+item.remarks+'</div></td><td style="width:15%; padding:3px;" class="text-end itemQty">'+parseInt(item.qty)+'</td><td style="width:35%; padding:3px;" class="text-end itemPrice">'+parseFloat(item.amount).toFixed(2)+'</td></tr>');
+    });
+
+    restoreColors();
+  });
 }
 
 function getProducts(path) {

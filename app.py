@@ -10,9 +10,9 @@ import os
 db = connector.connect(
     host="localhost",
     user="root",
-    password="",
+    password="mjm",
     database="lite",
-    port=3306
+    port=3309
 )
 
 
@@ -194,6 +194,38 @@ def tables(id):
     else:
         return make_response("Table not found", 404)
 
+@app.route("/orders", methods=['GET'])
+def orders():
+    args = request.args
+
+    orders = []
+    total = 0
+
+    print(args.get('client'))
+
+    if args.get('client'):
+        getOrders = db.cursor(dictionary=True, prepared=True)
+        getOrders.execute("SELECT * FROM salestran where client=%s ORDER by encoded ASC", (args.get('client'),))
+
+        for order in getOrders.fetchall():
+            amount = float(order['isamt']) * float(order['isqty'])
+            orders.append({
+                "id": order['line'],
+                "barcode": order['barcode'],
+                "name": order['itemname'],
+                "qty": order['isqty'],
+                "amount": amount,
+                "remarks": order['remarks'],
+                "printed": order['isprint']
+            })
+            total += amount
+
+    return make_response({
+        "orders": orders,
+        "total": total
+    })
+
+
 @app.route("/products", methods=['GET'])
 def products():
     args = request.args
@@ -205,29 +237,53 @@ def products():
 
     if args.get('category'):
         getGroups = db.cursor(dictionary=True, prepared=True)
-        getGroups.execute("SELECT DISTINCT(groupid) as itemname, class, '' as barcode FROM `item` WHERE `class`=%s AND `groupid` > ''", (args.get('category'),))
+        getGroups.execute("SELECT DISTINCT(groupid) as itemname, class, '' as barcode FROM `item` WHERE `class`=%s AND `groupid` > '' AND `isinactive` = 0", (args.get('category'),))
         groups = getGroups.fetchall()
         if groups:
             products = groups
             if args.get('group'):
                 getProductsByGroup = db.cursor(dictionary=True, prepared=True)
-                getProductsByGroup.execute("SELECT * FROM item WHERE `class`=%s AND `groupid`=%s ORDER by itemname ASC", (args.get('category'), args.get('group')))
+                getProductsByGroup.execute("""
+                    SELECT i.*, count(*) as orderCount 
+                    FROM item as i 
+                    LEFT JOIN `salestran` as st ON i.barcode = st.barcode 
+                    WHERE i.class=%s AND i.groupid=%s AND i.isinactive = 0
+                    GROUP BY i.barcode 
+                    ORDER BY orderCount DESC""", (args.get('category'), args.get('group')))
                 subProducts = getProductsByGroup.fetchall()
 
             #for not grouped products
             getProducts = db.cursor(dictionary=True, prepared=True)
-            getProducts.execute("SELECT * FROM item WHERE `class`=%s and groupid='' ORDER by itemname ASC", (args.get('category'),))
+            getProducts.execute("""
+                SELECT i.*, count(*) as orderCount 
+                FROM item as i 
+                LEFT JOIN `salestran` as st ON i.barcode = st.barcode 
+                WHERE i.class=%s and i.groupid='' AND i.isinactive = 0 
+                GROUP BY i.barcode 
+                ORDER BY orderCount DESC""", (args.get('category'),))
             for p in getProducts.fetchall():
                 products.append(p)
         else:
             getProducts = db.cursor(dictionary=True, prepared=True)
-            getProducts.execute("SELECT * FROM item WHERE `class`=%s ORDER by itemname ASC", (args.get('category'),))
+            getProducts.execute("""
+                SELECT i.*, count(*) as orderCount 
+                FROM item as i 
+                LEFT JOIN `salestran` as st ON i.barcode = st.barcode 
+                WHERE i.class=%s AND i.isinactive = 0 
+                GROUP BY i.barcode 
+                ORDER BY orderCount DESC""", (args.get('category'),))
             products = getProducts.fetchall()
     
     if args.get('search'):
         getSearchProducts = db.cursor(dictionary=True, prepared=True)
         stext = '%'+args.get('search')+'%'
-        getSearchProducts.execute("SELECT * FROM item WHERE `itemname` LIKE %s",(stext,))
+        getSearchProducts.execute("""
+            SELECT i.*, count(*) as orderCount 
+            FROM item as i 
+            LEFT JOIN `salestran` as st ON i.barcode = st.barcode 
+            WHERE i.itemname LIKE %s AND i.isinactive = 0 
+            GROUP BY i.barcode 
+            ORDER BY orderCount DESC""",(stext,))
         products = getSearchProducts.fetchall()
 
     return make_response({
@@ -333,7 +389,7 @@ def accept():
         order_item_remarks = filtered_order_items[0]['remarks'];
 
         printables[prntr].append({
-            "name": item['itemname'] + (" ("+order_item_remarks+")" if order_item_remarks else ""),
+            "name": item['itemname'] + ("\n!!! "+order_item_remarks+" !!!" if order_item_remarks else ""),
             "qty": order_item_qty,
             "unit": item['uom']
         })
@@ -360,19 +416,20 @@ def accept():
             waiter = 'Administrator'
             source = 'WH00001'
 
-        checkTransaction = db.cursor(prepared=True, dictionary=True)
-        # checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s", (table['client'], item['barcode']))
-        checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s and remarks=%s", (table['client'], item['barcode'], order_item_remarks))
-        existingTransation = checkTransaction.fetchone()
-        if existingTransation:
-            updateTransaction = db.cursor(prepared=True)
-            salesQty = existingTransation['isqty'] + order_item_qty
-            updateTransaction.execute("UPDATE salestran SET isqty=%s, remarks=%s WHERE line=%s", (salesQty, order_item_remarks, existingTransation['line']))
-        else:
-            insertTransaction = db.cursor(prepared=True)
-            insertTransaction.execute("""INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
-                                                        VALUES(%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       %s,        1,         CURRENT_DATE()       )""",
-                                                            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], order_item_qty, item['uom'], grp, waiter, osno, screg, scsenior, ccode, source, order_item_remarks))
+        # checkTransaction = db.cursor(prepared=True, dictionary=True)
+        # # checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s", (table['client'], item['barcode']))
+        # checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s and remarks=%s", (table['client'], item['barcode'], order_item_remarks))
+        # existingTransation = checkTransaction.fetchone()
+        # if existingTransation:
+        #     updateTransaction = db.cursor(prepared=True)
+        #     salesQty = existingTransation['isqty'] + order_item_qty
+        #     updateTransaction.execute("UPDATE salestran SET isqty=%s, remarks=%s WHERE line=%s", (salesQty, order_item_remarks, existingTransation['line']))
+        # else:
+        insertTransaction = db.cursor(prepared=True)
+        insertTransaction.execute("""
+            INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
+            VALUES(%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       %s,        1,         CURRENT_DATE()       )""",
+            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], order_item_qty, item['uom'], grp, waiter, osno, screg, scsenior, ccode, source, order_item_remarks))
 
     from escpos import printer
     for prntr in printables:
@@ -380,10 +437,10 @@ def accept():
 
         p = printer.Network(printerIP)
         date = datetime.now()
-        p.set(font='B')
+        p.set(font='A')
         p.text("----------------------------------------")
         p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
-        p.text("\n\nOrder for table: {table}\n\n".format(table=table['clientname']))
+        p.text("\n\nTable: {table}\n\n".format(table=table['clientname']))
 
         for row in printables[prntr]:
             print(row['name'])
@@ -398,6 +455,54 @@ def accept():
     
     return make_response(jsonify({'success': 'Orders Printed'}))
 
+@app.route("/voidItem", methods=['POST'])
+def voidItem():
+    form = request.get_json()
+
+    client = form.get('client')
+    line = form.get('line')
+
+    if client is None:
+        return make_response(jsonify({'error': 'No client passed'}), 422)
+    if line is None:
+        return make_response(jsonify({'error': 'No line passed'}), 422)
+
+    p = open('printers.json')
+    printers = dict(json.load(p))
+    p.close()
+
+    getItem = db.cursor(dictionary=True, prepared=True)
+    getItem.execute("""
+        SELECT i.model, st.itemname as itemname, st.isqty as qty, st.line, st.client, st.clientname, st.barcode FROM `salestran` as st
+        LEFT JOIN `item` as i ON st.barcode = i.barcode
+        WHERE st.client = %s and st.line = %s""", (client, line,))
+    item = getItem.fetchone()
+    
+    if item is None:
+        return make_response(jsonify({'error': "Item can't be found"}), 422)
+
+    from escpos import printer
+    printerIP =  printers[item['model']]
+
+    p = printer.Network(printerIP)
+    date = datetime.now()
+    p.set(font='A')
+    p.text("----------------------------------------")
+    p.text("\n\nVoid Slip")
+    p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
+    p.text("\n\nTable: {table}\n\n".format(table=item['clientname']))
+
+    p.text("\n"+str(item['qty']).rstrip('.0') + " - " + item['itemname'] + " !!! void void void !!! " + "\n")
+
+    p.text("\n----------------------------------------\n\n\n")
+    p.cut()
+
+    deleteItem = db.cursor(dictionary=True, prepared=True)
+    deleteItem.execute("""
+        DELETE FROM `salestran`
+        WHERE `client` = %s and `line` = %s""", (client, line,))
+
+    return make_response(jsonify({'success': 'Item Cancelled'}))
 
 @app.cli.command()
 @click.option('--b')

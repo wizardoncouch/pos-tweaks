@@ -6,7 +6,7 @@
     <div style="position:fixed; height:60px; width:100%;" class="d-flex justify-content-between align-items-center bg-light shadow-sm">
         <div class="d-flex align-items-center">
             <a href="/?floor={{data.table.flr|urlencode}}" class="fw-bold ms-1 me-3 btn btn-light fs-4"><i class="bi bi-arrow-left"></i></a>
-            <div class="fs-4 fw-bold text-dark text-capitalize">Table: {{data.table.clientname}}</div>
+            <div class="fs-4 fw-bold text-dark text-capitalize" id="tablename" data-table="{{data.table.clientname}}" data-client="{{data.table.client}}">Table: {{data.table.clientname}}</div>
         </div>
         <div><input name="search" id="search" placeholder="Type to search..."></div>
         <div>
@@ -21,42 +21,10 @@
                 <div  style="width:35%; padding:3px;" class="text-end">Amount</div>
                 <!-- <div  style="width:10%;">&nbsp;</div> -->
             </div>
-            <div style="position:absolute; top:30px; width:100%; height:calc(100% - 70px); overflow:auto;">
+            <div style="position:absolute; top:30px; width:100%; height:calc(100% - 120px); overflow:auto;" id="orderContainer">
                 <table id="orderTable" style="width:100%;">
-                    <tbody>
-                        {%for item in data.orders%}
-                            <tr data-barcode="{{item.barcode}}" class="orderLine alert {{'printed' if item.printed else ''}} border-0">
-                                <td style="width:50%; padding:3px;" class="itemName">
-                                    <small>{{item.name}}</small>
-                                    <div style="color:red;font-size:11px">{{item.remarks}}</div>
-                                </th>
-                                <td style="width:15%; padding:3px;" class="text-end itemQty">
-                                    {{(item.qty|round(2)|string).rstrip('.0')}}
-                                    <!-- {%if item.printed == 1%}
-                                        {{(item.qty|round(2)|string).rstrip('.0')}}
-                                     {%else%}
-                                        <form method="post" class="p-0 m-0" action="/transaction">
-                                            <input type="hidden" name="table" value="{{data.table.clientname}}">
-                                            <input type="hidden" name="barcode" value="{{item.barcode}}">
-                                            <input name="qty" class="alert alert-warning border-0 p-0 m-0 border-bottom border-warning rounded-0" size="5" style="text-align: center;" value="{{(item.qty|round(2)|string).rstrip('.0')}}"/>
-                                            <input name="remarks" class="mt-1" size="5" style="text-align: center;" value=""/>
-                                        </form>
-                                    {%endif%} -->
-                                </td>
-                                <td style="width:35%; padding:3px;" class="text-end itemPrice">{{"{:.2f}".format(item.amount)}}</td>
-                                <!-- <td style="width:10%;">
-                                    {%if item.printed == 0%}
-                                        <form method="post" class="p-0 m-0 d-flex justify-content-end" action="/transaction">
-                                            <input type="hidden" name="table" value="{{data.table.clientname}}">
-                                            <input type="hidden" name="barcode" value="{{item.barcode}}">
-                                            <input type="hidden" name="qty" value="0">
-                                            <button type="submit" class="bg-transparent" style="border:0;"><small><i class="bi bi-dash-circle-fill text-danger"></i></small></button>
-                                        </form>
-                                    {%endif%}
-                                </td> -->
-                            </tr>
-                        {%endfor%}
-                    </tbody>
+                    <tbody id="printedOrdersTable"></tbody>
+                    <tbody id="newOrdersTable"></tbody>
                 </table>
             </div>
             <div style="position:absolute; width:100%; bottom:0; height:80px;">
