@@ -69,13 +69,17 @@ $(document).ready(function(){
           data: JSON.stringify(payload),
           contentType:"application/json; charset=utf-8",
           dataType:"json",
-          success: function(){
-            alert('Orders Printed');
+          success: function(response){
+            if('error' in response){
+                alert(response.error)
+            }else{
+                alert(response.success)
+                $('#newOrdersTable').find('.orderLine')
+                    .remove()
+                    .end()
+                getOrders();
+            }
 
-            $('#newOrdersTable').find('.orderLine')
-                .remove()
-                .end()
-            getOrders();
           }
         });
       }

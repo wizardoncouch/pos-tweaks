@@ -8,7 +8,7 @@
             <div class="w-100">
                	<div class="d-flex align-items-center">
                     {%for floor in data.floors%}
-                    <a class="d-flex justify-content-between text-decoration-none btn btn-sm {{ 'text-success fw-bold' if floor.name == data.floor else 'text-secondary'}}" href="?floor={{floor.name|urlencode}}">{{floor.name}} floor {%if floor.name == data.floor%}<i class="bi bi-check text-success"></i>{%endif%}</a>
+                    <a class="d-flex justify-content-between text-decoration-none btn btn-sm {{ 'text-success fw-bold' if floor.name == data.floor else 'text-secondary'}}" href="?floor={{floor.name|urlencode}}">{{floor.name}} {%if floor.name == data.floor%}<i class="bi bi-check text-success"></i>{%endif%}</a>
                     {%endfor%}
                 </div>
             </div>

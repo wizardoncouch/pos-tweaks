@@ -10,11 +10,11 @@ import os
 db = connector.connect(
     host="localhost",
     user="root",
-    password="mjm",
+    password="x1root99",
     database="lite",
-    port=3309
+    port=3306
 )
-
+dash = "---------------------------------"
 
 app = Flask(__name__)
 
@@ -104,35 +104,7 @@ def tables(id):
     getCategories = db.cursor(dictionary=True)
     getCategories.execute("SELECT id, class as name FROM tblmenulist where isinactive=0 and iscategory=1 order by class asc")
     categories = getCategories.fetchall()
-
-    # products = []
-    # subProducts = []
-    # if args.get('category'):
-    #     getGroups = db.cursor(dictionary=True, prepared=True)
-    #     getGroups.execute("SELECT DISTINCT(groupid) as itemname, class, '' as barcode FROM `item` WHERE `class`=%s AND `groupid` > ''", (args.get('category'),))
-    #     groups = getGroups.fetchall()
-    #     if groups:
-    #         products = groups
-    #         if args.get('group'):
-    #             getProductsByGroup = db.cursor(dictionary=True, prepared=True)
-    #             getProductsByGroup.execute("SELECT * FROM item WHERE `class`=%s AND `groupid`=%s ORDER by itemname ASC", (args.get('category'), args.get('group')))
-    #             subProducts = getProductsByGroup.fetchall()
-
-    #         #for not grouped products
-    #         getProducts = db.cursor(dictionary=True, prepared=True)
-    #         getProducts.execute("SELECT * FROM item WHERE `class`=%s and groupid='' ORDER by itemname ASC", (args.get('category'),))
-    #         for p in getProducts.fetchall():
-    #             products.append(p)
-    #     else:
-    #         getProducts = db.cursor(dictionary=True, prepared=True)
-    #         getProducts.execute("SELECT * FROM item WHERE `class`=%s ORDER by itemname ASC", (args.get('category'),))
-    #         products = getProducts.fetchall()
-    
-    # if args.get('search'):
-    #     getSearchProducts = db.cursor(dictionary=True, prepared=True)
-    #     stext = '%'+args.get('search')+'%'
-    #     getSearchProducts.execute("SELECT * FROM item WHERE `itemname` LIKE %s",(stext,))
-    #     products = getSearchProducts.fetchall()
+    getCategories.close()
 
     getTable = db.cursor(dictionary=True, prepared=True)
     getTable.execute("SELECT * FROM client WHERE clientid=%s", (id,))
@@ -157,35 +129,8 @@ def tables(id):
             })
             total += amount
 
-        # key = table['clientname']
-        # sessionOrders = {}
-        # if os.path.isfile('orders.json'):
-        #     p = open('orders.json')
-        #     sessionOrders = dict(json.load(p))
-        #     p.close()
-        # if key in sessionOrders:
-        #     printable = True
-        #     transactions = sessionOrders[key] if key in sessionOrders else {}
-        #     if transactions.keys():
-        #         barcodes = ','.join(list(transactions.keys()))
-        #         getItemFromSession = db.cursor(prepared=True, dictionary=True)
-        #         getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
-        #         for item in getItemFromSession.fetchall():
-        #             amount = float(item['amt']) * float(transactions[item['barcode']])
-        #             orders.append({
-        #                 "id": 0,
-        #                 "barcode": item['barcode'],
-        #                 "name": item['itemname'],
-        #                 "qty": transactions[item['barcode']],
-        #                 "amount": amount,
-        #                 "printed": 0
-        #             })
-        #             total += amount
-
         return render_template('order1.html', data={
             "categories": categories,
-            # "products": products,
-            # "subProducts": subProducts,
             "table":table, 
             "orders": orders, 
             "total": total, 
@@ -232,8 +177,6 @@ def products():
 
     products = []
     subProducts = []
-
-    print(args.get('category'))
 
     if args.get('category'):
         getGroups = db.cursor(dictionary=True, prepared=True)
@@ -362,15 +305,7 @@ def accept():
     
     key = table['clientname']
     printables = {}
-    # sessionOrders = {}
-    # if os.path.isfile('orders.json'):
-    #     p = open('orders.json')
-    #     sessionOrders = dict(json.load(p))
-    #     p.close()
-
-    # transactions = sessionOrders[key] if key in sessionOrders else {}
-
-    # barcodes = ','.join(list(transactions.keys()))
+    insertables = {}
     barcodes = ','.join(list(barcodes))
     getItemFromSession = db.cursor(prepared=True, dictionary=True)
     getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
@@ -380,15 +315,16 @@ def accept():
     p.close()
 
     for item in getItemFromSession.fetchall():
-        prntr = item['model'] if item['model'] and printers[item['model']] else printers['default']
+        prntr = item['model'] if item['model'] and item['model'] in printers else printers['default']
         if not prntr in printables:
             printables[prntr] = []
 
         filtered_order_items = list(filter(lambda x: x['barcode'] == item['barcode'], order_items))
-        order_item_qty = filtered_order_items[0]['qty'];
-        order_item_remarks = filtered_order_items[0]['remarks'];
+        order_item_qty = filtered_order_items[0]['qty']
+        order_item_remarks = filtered_order_items[0]['remarks']
 
         printables[prntr].append({
+            "barcode": item['barcode'],
             "name": item['itemname'] + ("\n!!! "+order_item_remarks+" !!!" if order_item_remarks else ""),
             "qty": order_item_qty,
             "unit": item['uom']
@@ -416,44 +352,51 @@ def accept():
             waiter = 'Administrator'
             source = 'WH00001'
 
-        # checkTransaction = db.cursor(prepared=True, dictionary=True)
-        # # checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s", (table['client'], item['barcode']))
-        # checkTransaction.execute("SELECT * FROM salestran WHERE client=%s and barcode=%s and remarks=%s", (table['client'], item['barcode'], order_item_remarks))
-        # existingTransation = checkTransaction.fetchone()
-        # if existingTransation:
-        #     updateTransaction = db.cursor(prepared=True)
-        #     salesQty = existingTransation['isqty'] + order_item_qty
-        #     updateTransaction.execute("UPDATE salestran SET isqty=%s, remarks=%s WHERE line=%s", (salesQty, order_item_remarks, existingTransation['line']))
-        # else:
-        insertTransaction = db.cursor(prepared=True)
-        insertTransaction.execute("""
-            INSERT INTO salestran(`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
-            VALUES(%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       %s,        1,         CURRENT_DATE()       )""",
-            (table['client'], table['clientname'], item['barcode'], item['itemname'], item['amt'], order_item_qty, item['uom'], grp, waiter, osno, screg, scsenior, ccode, source, order_item_remarks))
+        insertables[item['barcode']] = {
+            'client': table['client'],
+            'clientname': table['clientname'],
+            'barcode': item['barcode'],
+            'itemname': item['itemname'],
+            'amount': item['amt'],
+            'qty': order_item_qty,
+            'unit': item['uom'],
+            'group': grp,
+            'waiter': waiter,
+            'osno': osno,
+            'screg': screg,
+            'scsenior': scsenior,
+            'ccode': ccode,
+            'source': source,
+            'remarks': order_item_remarks,
+        }
 
-    from escpos import printer
-    for prntr in printables:
-        printerIP =  printers[prntr]
+    try:
+        from escpos import printer
+        for prntr in printables:
+            printerIP =  printers[prntr]
 
-        p = printer.Network(printerIP)
-        date = datetime.now()
-        p.set(font='A')
-        p.text("----------------------------------------")
-        p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
-        p.text("\n\nTable: {table}\n\n".format(table=table['clientname']))
+            p = printer.Network(printerIP)
+            date = datetime.now()
+            p.set(font='A')
+            p.text(dash)
+            p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
+            p.text("\n\nTable: {table}\n\n".format(table=table['clientname']))
 
-        for row in printables[prntr]:
-            print(row['name'])
-            p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
-        p.text("\n----------------------------------------\n\n\n")
-        p.cut() 
-
-    # del sessionOrders[key]
-
-    # with open("orders.json", "w") as outfile:
-    #     json.dump(sessionOrders, outfile) 
+            for row in printables[prntr]:
+                print(row['name'])
+                p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
+                i = insertables[row['barcode']]
+                insertTransaction = db.cursor(prepared=True)
+                insertTransaction.execute("""
+                    INSERT INTO salestran   (`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
+                                VALUES      (%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       %s,        1,         CURRENT_DATE()       )""",
+                                (i['client'], i['clientname'], i['barcode'], i['itemname'], i['amount'], i['qty'], i['unit'], i['group'], i['waiter'], i['osno'], i['screg'], i['scsenior'], i['ccode'], i['source'], i['remarks']))
+            p.text("\n{dash}\n\n\n".format(dash=dash))
+            p.cut() 
+        return make_response(jsonify({'success': 'Orders Printed'}))
+    except:
+        return make_response(jsonify({'error': 'Printer error'}))
     
-    return make_response(jsonify({'success': 'Orders Printed'}))
 
 @app.route("/voidItem", methods=['POST'])
 def voidItem():
@@ -481,28 +424,31 @@ def voidItem():
     if item is None:
         return make_response(jsonify({'error': "Item can't be found"}), 422)
 
-    from escpos import printer
-    printerIP =  printers[item['model']]
+    try:
+        from escpos import printer
+        printerIP =  printers[item['model']]
 
-    p = printer.Network(printerIP)
-    date = datetime.now()
-    p.set(font='A')
-    p.text("----------------------------------------")
-    p.text("\n\nVoid Slip")
-    p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
-    p.text("\n\nTable: {table}\n\n".format(table=item['clientname']))
+        p = printer.Network(printerIP)
+        date = datetime.now()
+        p.set(font='A')
+        p.text(dash)
+        p.text("\n\nVoid Slip")
+        p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
+        p.text("\n\nTable: {table}\n\n".format(table=item['clientname']))
 
-    p.text("\n"+str(item['qty']).rstrip('.0') + " - " + item['itemname'] + " !!! void void void !!! " + "\n")
+        p.text("\n"+str(item['qty']).rstrip('.0') + " - " + item['itemname'] + " !!! void void void !!! " + "\n")
 
-    p.text("\n----------------------------------------\n\n\n")
-    p.cut()
+        p.text("\n{dash}\n\n\n".format(dash=dash))
+        p.cut()
 
-    deleteItem = db.cursor(dictionary=True, prepared=True)
-    deleteItem.execute("""
-        DELETE FROM `salestran`
-        WHERE `client` = %s and `line` = %s""", (client, line,))
+        deleteItem = db.cursor(dictionary=True, prepared=True)
+        deleteItem.execute("""
+            DELETE FROM `salestran`
+            WHERE `client` = %s and `line` = %s""", (client, line,))
+        return make_response(jsonify({'success': 'Item Cancelled'}))
+    except:
+        return make_response(jsonify({'error': 'Printing error'}))
 
-    return make_response(jsonify({'success': 'Item Cancelled'}))
 
 @app.cli.command()
 @click.option('--b')
