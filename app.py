@@ -327,38 +327,34 @@ def accept():
 
     table = form.get('table_name')
     order_items = form.get('order_items')
-
-    barcodes = []
-    for item in order_items:
-        barcodes.append(item['barcode'])
-
+    
     getTable = db.cursor(prepared=True, dictionary=True)
     getTable.execute("SELECT * FROM `client` WHERE `clientname`=%s", (table,))
     table = getTable.fetchone()
     if table is None:
         return make_response(jsonify({'error': 'No table passed'}), 422)
-    
-    key = table['clientname']
-    printables = {}
-    insertables = {}
-    barcodes = ','.join(list(barcodes))
-    getItemFromSession = db.cursor(prepared=True, dictionary=True)
-    getItemFromSession.execute("SELECT * FROM item where barcode in({b})".format(b=barcodes))
 
     p = open('printers.json')
     printers = dict(json.load(p))
     p.close()
 
-    for item in getItemFromSession.fetchall():
+    printables = {}
+    insertables = {}
+    cntr = 1
+    for order_item in order_items:
+        getItemFromSession = db.cursor(prepared=True, dictionary=True)
+        getItemFromSession.execute("SELECT * FROM item where barcode=%s",(order_item['barcode'],))
+        item = getItemFromSession.fetchone()
+
         prntr = item['model'] if item['model'] and item['model'] in printers else printers['default']
         if not prntr in printables:
             printables[prntr] = []
 
-        filtered_order_items = list(filter(lambda x: x['barcode'] == item['barcode'], order_items))
-        order_item_qty = filtered_order_items[0]['qty']
-        order_item_remarks = filtered_order_items[0]['remarks']
+        order_item_qty = order_item['qty']
+        order_item_remarks = order_item['remarks']
 
         printables[prntr].append({
+            "cntr": cntr,
             "barcode": item['barcode'],
             "name": item['itemname'] + ("\n!!! "+order_item_remarks+" !!!" if order_item_remarks else ""),
             "qty": order_item_qty,
@@ -387,7 +383,7 @@ def accept():
             waiter = 'Administrator'
             source = 'WH00001'
 
-        insertables[item['barcode']] = {
+        insertables[cntr] = {
             'client': table['client'],
             'clientname': table['clientname'],
             'barcode': item['barcode'],
@@ -404,6 +400,7 @@ def accept():
             'source': source,
             'remarks': order_item_remarks,
         }
+        cntr += 1
 
     try:
         from escpos import printer
@@ -418,9 +415,8 @@ def accept():
             p.text("\n\nTable: {table}\n\n".format(table=table['clientname']))
 
             for row in printables[prntr]:
-                print(row['name'])
                 p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
-                i = insertables[row['barcode']]
+                i = insertables[row['cntr']]
                 insertTransaction = db.cursor(prepared=True)
                 insertTransaction.execute("""
                     INSERT INTO salestran   (`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
