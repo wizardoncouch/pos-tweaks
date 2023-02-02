@@ -21,6 +21,27 @@ db = connector.connect(
 )
 
 dash = "---------------------------------"
+def ssql(scode, arrfields):
+    scode = scode.lower().strip()
+    scode = scode.replace('"', ' ').replace("'", ' ')
+    where = ""
+    
+    if scode:
+        arr = scode.split(' ')
+        for e in arr:
+            not_ = ""
+            cond = " OR "
+            cond1 = 0
+            if e[0] == '-' and len(e) > 1:
+                not_ = " NOT "
+                e = e[1:]
+                cond = " AND "
+                cond1 = 1
+            where += " AND ( {} ".format(cond1)
+            for sfield in arrfields:
+                where += "{} {} LIKE '%{}%'".format(cond, sfield, e)
+            where += " ) "
+    return where
 
 @app.route('/config', methods=["POST", "GET"])
 def config():
@@ -132,7 +153,6 @@ def tables(id):
                 "printed": order['isprint']
             })
             total += amount
-
         return render_template('order1.html', data={
             "categories": categories,
             "table":table, 
@@ -222,15 +242,20 @@ def products():
             products = getProducts.fetchall()
     
     if args.get('search'):
-        getSearchProducts = db.cursor(dictionary=True, prepared=True)
-        stext = '%'+args.get('search')+'%'
+        where = ""
+        for s in args.get('search').strip().lower().split(' '):
+            where += " AND concat(' ',i.itemname) LIKE '% {s}%'".format(s=s)
+        getSearchProducts = db.cursor(dictionary=True)
+        # stext = '%'+args.get('search')+'%'
+        # where = ssql(args.get('search'), ['i.itemname'])
+        print(where)
         getSearchProducts.execute("""
             SELECT i.*, count(*) as orderCount 
             FROM item as i 
             LEFT JOIN `salestran` as st ON i.barcode = st.barcode 
-            WHERE i.itemname LIKE %s AND i.isinactive = 0 
+            WHERE i.isinactive = 0 {where} 
             GROUP BY i.barcode 
-            ORDER BY orderCount DESC""",(stext,))
+            ORDER BY orderCount DESC""".format(where=where))
         products = getSearchProducts.fetchall()
 
     return make_response({

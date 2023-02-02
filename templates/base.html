@@ -1,387 +1,393 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename= 'css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename= 'css/icons/bootstrap-icons.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename= 'css/style.css') }}">
-    <title>POS Orders</title>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename= 'css/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename= 'css/icons/bootstrap-icons.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename= 'css/style.css') }}">
+  <title>POS Orders</title>
 </head>
+
 <body>
-<div>
+  <div>
     {% block content %} {% endblock %}
-</div>
-<script src="{{ url_for('static', filename= 'js/popper.min.js') }}"></script>
-<script src="{{ url_for('static', filename= 'js/bootstrap.min.js') }}"></script>
-<script src="{{ url_for('static', filename= 'js/jquery-3.6.3.min.js') }}"></script>
+  </div>
+  <script src="{{ url_for('static', filename= 'js/popper.min.js') }}"></script>
+  <script src="{{ url_for('static', filename= 'js/bootstrap.min.js') }}"></script>
+  <script src="{{ url_for('static', filename= 'js/jquery-3.6.3.min.js') }}"></script>
 
-<script>
+  <script>
 
-let markedBg = '#4788ff';
-let markedColor = '#fff';
+    let markedBg = '#4788ff';
+    let markedColor = '#fff';
 
-$(document).ready(function(){
-  $('#remarksModal').hide();
+    $(document).ready(function () {
+      $('#remarksModal').hide();
 
-  $('.orderLine').each(function() {
-    restoreColors();
-  })
+      $('.orderLine').each(function () {
+        restoreColors();
+      })
 
-  $('.addQty').addClass('disabled');
-  $('.minusQty').addClass('disabled');
-  $('.remarks').addClass('disabled');
+      $('.addQty').addClass('disabled');
+      $('.minusQty').addClass('disabled');
+      $('.remarks').addClass('disabled');
 
-  $(document).on('click', '#accept-order', function() {
-      let table = $(this).data('table')
+      $(document).on('click', '#accept-order', function () {
+        let s = $(this);
+        let table = $(this).data('table')
 
-      let items = [];
 
-      $('.orderLine').each(function() {
+        let items = [];
 
-        if(!$(this).hasClass('printed')) {
-          let barcode = $(this).data('barcode')+'';
-          let nameEl = $(this).find('.itemName');
-          let qtyEl = $(this).find('.itemQty');
-          let priceEl = $(this).find('.itemPrice');
-          let remarksEl = $(this).find('.itemRemarks');
+        $('.orderLine').each(function () {
 
-          items.push({
-            'barcode': barcode,
-            'name': $.trim(nameEl.text()),
-            'qty': parseInt($.trim(qtyEl.text())),
-            'price': $.trim(priceEl.text()),
-            'remarks': $.trim(remarksEl.text())
-          })
+          if (!$(this).hasClass('printed')) {
+            let barcode = $(this).data('barcode') + '';
+            let nameEl = $(this).find('.itemName');
+            let qtyEl = $(this).find('.itemQty');
+            let priceEl = $(this).find('.itemPrice');
+            let remarksEl = $(this).find('.itemRemarks');
+
+            items.push({
+              'barcode': barcode,
+              'name': $.trim(nameEl.text()),
+              'qty': parseInt($.trim(qtyEl.text())),
+              'price': $.trim(priceEl.text()),
+              'remarks': $.trim(remarksEl.text())
+            })
+          }
+        });
+
+        let payload = {
+          "table_name": table,
+          "order_items": items,
+        }
+
+        if (items.length > 0) {
+          s.prop('disabled', true);
+          $.ajax({
+            url: '/accept',
+            type: "POST",
+            data: JSON.stringify(payload),
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            success: function (response) {
+              if ('error' in response) {
+                alert(response.error)
+              } else {
+                alert(response.success)
+                $('#newOrdersTable').find('.orderLine')
+                  .remove()
+                  .end()
+                getOrders();
+              }
+              s.prop('disabled', false);
+            }
+          });
         }
       });
 
-      let payload = {
-        "table_name": table,
-        "order_items": items,
-      }
+      getOrders();
 
-      if(items.length > 0) {
-        $.ajax({
-          url:'/accept',
-          type:"POST",
-          data: JSON.stringify(payload),
-          contentType:"application/json; charset=utf-8",
-          dataType:"json",
-          success: function(response){
-            if('error' in response){
-                alert(response.error)
-            }else{
-                alert(response.success)
-                $('#newOrdersTable').find('.orderLine')
-                    .remove()
-                    .end()
+      OptimizeTableView();
+
+      $(document).on('click', '#category', function () {
+        let category = $(this).data('category');
+
+        let path = '/products?category=' + category;
+        getProducts(path);
+      })
+
+      $(document).on('click', '.showMoreProducts', function () {
+        let category = $(this).data('category');
+        let group = $(this).data('group');
+
+        let path = '/products?category=' + category + '&group=' + group;
+        getProducts(path);
+      })
+
+      $('#search').on('input', function (e) {
+        if ($(this).val().length > 0) {
+          let path = '/products?search=' + $('#search').val();
+          getProducts(path);
+        }
+      })
+        .focusout(function () {
+          $('#search').blur();
+        })
+        .keyup(function (e) {
+          if (e.keyCode == 13) $('#search').blur();
+        });
+
+      $(document).on('click', '.orderLine', function () {
+        restoreColors();
+        markedLine($(this));
+      });
+
+      $(document).on('click', '.addItem', function () {
+        $('#remarksModal').hide();
+
+        let barcode = $(this).data('barcode');
+        let name = $(this).data('name');
+        let price = parseFloat($(this).data('price')).toFixed(2);
+        let qty = 1;
+
+        appendItem(barcode, name, qty, price);
+        totalPrice();
+        activateTools();
+      });
+
+      $('.addQty').click(function () {
+        if ($('.active').hasClass('printed')) {
+          let barcode = $('.active').data('barcode');
+          let nameEl = $('.active').find('.itemName');
+          let qtyEl = $('.active').find('.itemQty');
+          let priceEl = $('.active').find('.itemPrice');
+          let remarksEl = $('.active').find('.itemRemarks');
+
+          appendItem(barcode, nameEl.text(), 1, (parseFloat(priceEl.text()) / parseInt(qtyEl.text())).toFixed(2), remarksEl.text());
+          totalPrice();
+          activateTools()
+        } else {
+          let qtyEl = $('.active').find('.itemQty');
+          let priceEl = $('.active').find('.itemPrice');
+          let qty = parseInt(qtyEl.text()) + 1;
+          let oPrice = parseFloat(priceEl.text()) / parseInt(qtyEl.text());
+          let price = (oPrice * qty).toFixed(2);
+          qtyEl.text(qty);
+          priceEl.text(price);
+          totalPrice();
+        }
+      });
+
+      $(document).on('click', '.minusQty', function () {
+        $('#remarksModal').hide();
+
+        if (!$('.active').hasClass('printed')) {
+          let priceEl = $('.active').find('.itemPrice');
+          let qtyEl = $('.active').find('.itemQty');
+          let oPrice = parseFloat(priceEl.text()) / parseInt(qtyEl.text());
+          let price = parseFloat(priceEl.text()) - oPrice;
+          let qty = parseInt(qtyEl.text()) - 1;
+
+          if (qty <= 0) {
+            $('.active').remove();
+            return totalPrice();
+          }
+
+          qtyEl.text(qty);
+          priceEl.text(price.toFixed(2));
+          totalPrice();
+        } else {
+          let line = $('.active').data('line');
+          let client = $('#tablename').data('client');
+          let barcode = $('.active').data('barcode');
+
+          let payload = { "client": client, "line": line, "barcode": barcode };
+
+          if (window.confirm('Void this item?') == true) {
+            $.ajax({
+              url: '/voidItem',
+              type: "POST",
+              data: JSON.stringify(payload),
+              contentType: "application/json; charset=utf-8",
+              dataType: "json",
+              success: function (response) {
+                console.log('void response', response)
+                alert('Item Cancelled')
                 getOrders();
-            }
-
+              }
+            });
           }
+        }
+      });
+
+      $('.remarks').click(function () {
+        if ($('.active').hasClass('printed')) return false;
+
+        let remarksEl = $('.active').find('.itemRemarks');
+        $('#remarkInput').val(remarksEl.text())
+
+        let barcode = $('.active').data('barcode');
+        $.post('/remarks', { "barcode": barcode }).then(function (response) {
+          $('#remarksModal').show();
+
+          let nameEl = $('.active').find('.itemName');
+          $('#remarkProduct').text(nameEl.text())
+
+          $('#remarkOptions').find('button')
+            .remove()
+            .end()
+
+          response.forEach(obj => {
+            $('#remarkOptions').append('<div><button id="remarkOption" type="button" class="btn btn-light w-100 mb-2" value="' + obj.remarks + '">' + obj.remarks + '</button></div>')
+          });
         });
-      }
-  });
+      });
 
-  getOrders();
+      $('#remarkInput').on('change', function () {
+        let remarksEl = $('.active').find('.itemRemarks');
+        remarksEl.text($(this).val());
+        $('#remarksModal').hide();
+        $('#remarkInput').blur();
+      }).focusout(function () {
+        $('#remarksModal').hide();
+      });
 
-	OptimizeTableView();
+      $(document).on('click', '#remarkOption', function () {
+        let remarksEl = $('.active').find('.itemRemarks');
 
-  $(document).on('click', '#category', function() {
-    let category = $(this).data('category');
+        let remark = remarksEl.text() + ' ' + $(this).val();
 
-    let path = '/products?category='+category;
-    getProducts(path);
-  })
+        remarksEl.text(remark);
+        $('#remarkInput').val(remark)
 
-  $(document).on('click', '.showMoreProducts', function() {
-    let category = $(this).data('category');
-    let group = $(this).data('group');
+        $('#remarksModal').hide();
+      });
 
-    let path = '/products?category='+category+'&group='+group;
-    getProducts(path);
-  })
+      $('#closeRemarks').click(function () {
+        $('#remarksModal').hide();
+      });
 
-  $('#search').on('input', function(e) {
-    if($(this).val().length >= 3) {
-      let path = '/products?search='+$('#search').val();
-      getProducts(path);
+    });
+
+    $(window).resize(function () {
+      OptimizeTableView();
+    });
+
+    function appendItem(barcode, name, qty, price, remarks = '') {
+      restoreColors();
+      $("#newOrdersTable").append('<tr data-barcode="' + barcode + '" class="orderLine active alert alert-warning border-0" style="background-color:' + markedBg + '; color:' + markedColor + '"><td style="width:50%; padding:3px;"><small class="itemName">' + name.toUpperCase() + '</small><div class="itemRemarks" style="color:red;font-size:11px">' + remarks + '</div></td><td style="width:15%; padding:3px;" class="text-end itemQty">' + qty + '</td><td style="width:35%; padding:3px;" class="text-end itemPrice">' + price + '</td></tr>');
+      $("#orderContainer").animate({ scrollTop: $('#orderContainer').prop("scrollHeight") }, 1000);
     }
-  })
-  .focusout(function() {
-    $('#search').blur();
-  })
-  .keyup(function(e) {
-    if(e.keyCode == 13) $('#search').blur();
-  });
 
-  $(document).on('click', '.orderLine', function() {
-    restoreColors();
-    markedLine($(this));
-  });
+    function markedLine(el) {
+      el.addClass('active');
+      el.css('background-color', markedBg);
+      el.css('color', markedColor);
 
-  $(document).on('click', '.addItem', function() {
-    $('#remarksModal').hide();
-
-    let barcode = $(this).data('barcode');
-    let name = $(this).data('name');
-    let price = parseFloat($(this).data('price')).toFixed(2);
-    let qty = 1;
-
-    appendItem(barcode, name, qty, price);
-    totalPrice();
-    activateTools();
-  });
-
-  $('.addQty').click(function() {
-    if($('.active').hasClass('printed')) {
-      let barcode = $('.active').data('barcode');
-      let nameEl = $('.active').find('.itemName');
-      let qtyEl = $('.active').find('.itemQty');
-      let priceEl = $('.active').find('.itemPrice');
-      let remarksEl = $('.active').find('.itemRemarks');
-
-      appendItem(barcode, nameEl.text(), 1, (parseFloat(priceEl.text())/parseInt(qtyEl.text())).toFixed(2), remarksEl.text());
-      totalPrice();
-      activateTools()
-    } else {
-      let qtyEl = $('.active').find('.itemQty');
-      let priceEl = $('.active').find('.itemPrice');
-      let qty = parseInt(qtyEl.text()) + 1;
-      let oPrice = parseFloat(priceEl.text()) / parseInt(qtyEl.text());
-      let price = (oPrice * qty).toFixed(2);
-      qtyEl.text(qty);
-      priceEl.text(price);
-      totalPrice();
+      activateTools();
     }
-  });
 
-  $(document).on('click', '.minusQty', function() {
-    $('#remarksModal').hide();
+    function restoreColors() {
+      $('.orderLine').each(function () {
+        $(this).removeClass('active');
 
-    if(!$('.active').hasClass('printed')) {
-      let priceEl = $('.active').find('.itemPrice');
-      let qtyEl = $('.active').find('.itemQty');
-      let oPrice = parseFloat(priceEl.text()) / parseInt(qtyEl.text());
-      let price = parseFloat(priceEl.text()) - oPrice;
-      let qty = parseInt(qtyEl.text()) - 1;
+        let bgColor = $(this).hasClass('printed') ? '#0bd480' : '#e5ed98';
+        let textColor = '#000';
+        $(this).css('background-color', bgColor);
+        $(this).css('color', textColor);
+      });
+    }
 
-      if(qty <= 0) {
-        $('.active').remove();
-        return totalPrice();
+    function activateTools() {
+      if ($('.active').hasClass('printed')) {
+        $('.addQty').removeClass('disabled');
+        $('.minusQty').removeClass('disabled');
+        $('.remarks').addClass('disabled');
+      } else {
+        $('.addQty').removeClass('disabled');
+        $('.minusQty').removeClass('disabled');
+        $('.remarks').removeClass('disabled');
       }
+    }
 
-      qtyEl.text(qty);
-      priceEl.text(price.toFixed(2));
-      totalPrice();
-    } else {
-      let line = $('.active').data('line');
+    function getOrders() {
       let client = $('#tablename').data('client');
-      let barcode = $('.active').data('barcode');
+      $.get('/orders?client=' + client).then(function (response) {
+        let orders = response.orders;
+        console.log(orders);
 
-      let payload = {"client": client, "line": line, "barcode": barcode};
-
-      if(window.confirm('Void this item?') == true) {
-        $.ajax({
-          url:'/voidItem',
-          type:"POST",
-          data: JSON.stringify(payload),
-          contentType:"application/json; charset=utf-8",
-          dataType:"json",
-          success: function(response){
-            console.log('void response', response)
-            alert('Item Cancelled')
-            getOrders();
-          }
-        });
-      }
-    }
-  });
-
-  $('.remarks').click(function() {
-    if($('.active').hasClass('printed')) return false;
-
-    let remarksEl = $('.active').find('.itemRemarks');
-    $('#remarkInput').val(remarksEl.text())
-
-    let barcode = $('.active').data('barcode');
-    $.post('/remarks', {"barcode": barcode}).then(function(response){
-        $('#remarksModal').show();
-
-        let nameEl = $('.active').find('.itemName');
-        $('#remarkProduct').text(nameEl.text())
-
-        $('#remarkOptions').find('button')
+        $('#printedOrdersTable').find('.printed')
           .remove()
           .end()
 
-        response.forEach(obj => {
-          $('#remarkOptions').append('<div><button id="remarkOption" type="button" class="btn btn-light w-100 mb-2" value="'+obj.remarks+'">'+obj.remarks+'</button></div>')
+        orders.forEach(item => {
+          $("#printedOrdersTable").append('<tr data-line="' + item.id + '" data-client="' + item.client + '" data-barcode="' + item.barcode + '" class="orderLine alert printed border-0"><td style="width:50%; padding:3px;"><small class="itemName">' + item.name + '</small><div style="color:red;font-size:11px" class="itemRemarks">' + item.remarks + '</div></td><td style="width:15%; padding:3px;" class="text-end itemQty">' + parseInt(item.qty) + '</td><td style="width:35%; padding:3px;" class="text-end itemPrice">' + parseFloat(item.amount).toFixed(2) + '</td></tr>');
         });
-    });
-  });
 
-  $('#remarkInput').on('change', function() {
-    let remarksEl = $('.active').find('.itemRemarks');
-    remarksEl.text($(this).val());
-    $('#remarksModal').hide();
-    $('#remarkInput').blur();
-  }).focusout(function() {
-    $('#remarksModal').hide();
-  });
+        restoreColors();
+      });
+    }
 
-  $(document).on('click', '#remarkOption', function() {
-    let remarksEl = $('.active').find('.itemRemarks');
+    function getProducts(path) {
+      $.get(path).then(function (response) {
+        let products = response['products'];
+        let subProducts = response['subProducts'];
 
-    let remark = remarksEl.text()+' '+$(this).val();
+        $('#products').find('.product')
+          .remove()
+          .end()
 
-    remarksEl.text(remark);
-    $('#remarkInput').val(remark)
+        products.forEach(product => {
+          $('#products').append('<div class="col h-100 mt-1 product"><div class="col h-100 ' + (product.barcode > '' ? 'addItem' : 'showMoreProducts') + '" data-barcode="' + product.barcode + '" data-name="' + product.itemname + '"  data-price="' + product.amt + '" data-category="' + product.class + '" data-group="' + product.itemname + '"><button type="button" class="btn btn-light w-100 h-100 text-button-label">' + product.itemname + '</button></div></div>')
+        });
 
-    $('#remarksModal').hide();
-  });
+        $('#subProducts').find('.subProduct')
+          .remove()
+          .end()
 
-  $('#closeRemarks').click(function() {
-    $('#remarksModal').hide();
-  });
+        subProducts.forEach(subProduct => {
+          $('#subProducts').append('<div class="col h-100 addItem subProduct" data-barcode="' + subProduct.barcode + '" data-name="' + subProduct.itemname + '"  data-price="' + subProduct.amt + '"><button type="button" class="btn btn-light w-100 h-100 text-button-label">' + subProduct.itemname + '</button></div>')
+        });
+      });
+    }
 
-});
-
-$(window).resize(function() {
-  OptimizeTableView();
-});
-
-function appendItem(barcode, name, qty, price, remarks = '') {
-  restoreColors();
-  $("#newOrdersTable").append('<tr data-barcode="'+barcode+'" class="orderLine active alert alert-warning border-0" style="background-color:'+markedBg+'; color:'+markedColor+'"><td style="width:50%; padding:3px;"><small class="itemName">'+name.toUpperCase()+'</small><div class="itemRemarks" style="color:red;font-size:11px">'+remarks+'</div></td><td style="width:15%; padding:3px;" class="text-end itemQty">'+qty+'</td><td style="width:35%; padding:3px;" class="text-end itemPrice">'+price+'</td></tr>');
-  $("#orderContainer").animate({ scrollTop: $('#orderContainer').prop("scrollHeight")}, 1000);
-}
-
-function markedLine(el) {
-  el.addClass('active');
-  el.css('background-color', markedBg);
-  el.css('color', markedColor);
-
-  activateTools();
-}
-
-function restoreColors() {
-  $('.orderLine').each(function() {
-    $(this).removeClass('active');
-
-    let bgColor = $(this).hasClass('printed') ? '#0bd480' : '#e5ed98';
-    let textColor = '#000';
-    $(this).css('background-color', bgColor);
-    $(this).css('color', textColor);
-  });
-}
-
-function activateTools() {
-  if($('.active').hasClass('printed')){
-    $('.addQty').removeClass('disabled');
-    $('.minusQty').removeClass('disabled');
-    $('.remarks').addClass('disabled');
-  } else {
-    $('.addQty').removeClass('disabled');
-    $('.minusQty').removeClass('disabled');
-    $('.remarks').removeClass('disabled');
-  }
-}
-
-function getOrders() {
-  let client = $('#tablename').data('client');
-  $.get('/orders?client='+client).then(function(response){
-    let orders = response.orders;
-    console.log(orders);
-
-    $('#printedOrdersTable').find('.printed')
-        .remove()
-        .end()
-
-    orders.forEach(item => {
-      $("#printedOrdersTable").append('<tr data-line="'+item.id+'" data-client="'+item.client+'" data-barcode="'+item.barcode+'" class="orderLine alert printed border-0"><td style="width:50%; padding:3px;"><small class="itemName">'+item.name+'</small><div style="color:red;font-size:11px" class="itemRemarks">'+item.remarks+'</div></td><td style="width:15%; padding:3px;" class="text-end itemQty">'+parseInt(item.qty)+'</td><td style="width:35%; padding:3px;" class="text-end itemPrice">'+parseFloat(item.amount).toFixed(2)+'</td></tr>');
-    });
-
-    restoreColors();
-  });
-}
-
-function getProducts(path) {
-  $.get(path).then(function(response){
-      let products = response['products'];
-      let subProducts = response['subProducts'];
-
-      $('#products').find('.product')
-        .remove()
-        .end()
-
-      products.forEach(product => {
-        $('#products').append('<div class="col h-100 mt-1 product"><div class="col h-100 '+(product.barcode > '' ? 'addItem' : 'showMoreProducts')+'" data-barcode="'+product.barcode+'" data-name="'+product.itemname+'"  data-price="'+product.amt+'" data-category="'+product.class+'" data-group="'+product.itemname+'"><button type="button" class="btn btn-light w-100 h-100 text-button-label">'+product.itemname+'</button></div></div>')
+    function totalPrice() {
+      let total = 0;
+      $('.orderLine').each(function () {
+        let priceEl = $(this).find('.itemPrice');
+        total += parseFloat($.trim(priceEl.text()));
       });
 
-      $('#subProducts').find('.subProduct')
-        .remove()
-        .end()
+      $('#total').text(total.toFixed(2));
+    }
 
-      subProducts.forEach(subProduct => {
-        $('#subProducts').append('<div class="col h-100 addItem subProduct" data-barcode="'+subProduct.barcode+'" data-name="'+subProduct.itemname+'"  data-price="'+subProduct.amt+'"><button type="button" class="btn btn-light w-100 h-100 text-button-label">'+subProduct.itemname+'</button></div>')
+    function OptimizeTableView() {
+
+      let maxx = 0;
+      let maxy = 0;
+      let tw = 100; // table with
+      let th = 50;  // table height
+      let fx = 1;
+      let fy = 1;
+      let headh = $('#floorSelect').length ? $('#floorSelect').height() : 0;
+      let ww = $(window).width();
+      let wh = $(window).height() - headh - 20;
+
+      // get max values
+      $('.tablex').each(function () {
+
+        let x = $(this).data('x');
+        if (x > maxx) maxx = x;
+
+        let y = $(this).data('y')
+        if (y > maxy) maxy = y;
+
       });
-    });
-}
 
-function totalPrice() {
-  let total = 0;
-  $('.orderLine').each(function() {
-    let priceEl = $(this).find('.itemPrice');
-    total += parseFloat($.trim(priceEl.text()));
-  });
+      if (maxx > ww) fx = ww / (maxx + tw);
+      if (maxy > wh) fy = wh / (maxy + th);
+      console.log(fx, fy);
+      // optimze view
+      $('.tablex').each(function () {
+        let x = ($(this).data('x') * fx);
+        let w = (tw * fx);
+        let y = ($(this).data('y') * fy);
+        let h = (th * fy);
 
-  $('#total').text(total.toFixed(2));
-}
-
-function OptimizeTableView(){
-
-  let maxx = 0;
-  let maxy = 0;
-  let tw   = 100; // table with
-  let th   = 50;  // table height
-  let fx   = 1;
-  let fy   = 1;
-  let headh= $('#floorSelect').length ? $('#floorSelect').height() : 0;
-  let ww   = $(window).width();
-  let wh   = $(window).height()-headh-20;
-  
-  // get max values
-  $('.tablex').each(function(){
-
-    let x = $(this).data('x');
-    if(x>maxx) maxx = x;
-
-    let y = $(this).data('y')
-    if(y>maxy) maxy = y;
-
-  });
-
-  if(maxx > ww ) fx = ww/(maxx+tw); 
-  if(maxy > wh ) fy = wh/(maxy+th); 
-  console.log(fx,fy);
-  // optimze view
-  $('.tablex').each(function(){
-    let x = ($(this).data('x') * fx);
-    let w = (tw * fx);
-    let y = ($(this).data('y') * fy);
-    let h = (th * fy);
-
-    $(this).css('left',x);
-    $(this).css('width',w);
-    $(this).css('top',y);
-    $(this).css('height',h);
-  });
-}
+        $(this).css('left', x);
+        $(this).css('width', w);
+        $(this).css('top', y);
+        $(this).css('height', h);
+      });
+    }
 
 
-</script>
+  </script>
 </body>
+
 </html>
