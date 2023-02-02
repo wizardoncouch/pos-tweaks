@@ -366,7 +366,7 @@ function OptimizeTableView(){
 
   if(maxx > ww ) fx = ww/(maxx+tw); 
   if(maxy > wh ) fy = wh/(maxy+th); 
-  
+  console.log(fx,fy);
   // optimze view
   $('.tablex').each(function(){
     let x = ($(this).data('x') * fx);
