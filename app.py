@@ -1,22 +1,26 @@
 from flask import Flask, render_template, request, make_response, redirect, session, jsonify
 from mysql import connector
 import requests
-import click
-from datetime import timedelta, datetime
+from datetime import datetime
 import json
 import os
+from waitress import serve
+
+
+app = Flask(__name__)
+
+app.config.from_pyfile('settings.py')
 
 
 db = connector.connect(
-    host="localhost",
-    user="root",
-    password="x1root99",
-    database="lite",
-    port=3306
+    host=app.config.get('DB_HOST'),
+    user=app.config.get('DB_USER'),
+    password=app.config.get('DB_PASSWORD'),
+    database=app.config.get('DB_NAME'),
+    port=app.config.get('DB_PORT')
 )
-dash = "---------------------------------"
 
-app = Flask(__name__)
+dash = "---------------------------------"
 
 @app.route('/config', methods=["POST", "GET"])
 def config():
@@ -451,13 +455,14 @@ def voidItem():
 
 
 @app.cli.command()
-@click.option('--b')
-def scheduled(b):
+# @click.option('--b')
+def scheduled():
+    b = app.config.get('BRANCH_ID')
     products = requests.get('https://pp.d3.net/api.php?action=products&branch=' + b)
     productInactive = db.cursor()
     productInactive.execute("UPDATE `item` set `isinactive`=1 WHERE `barcode` != ''")
     
-    if products:
+    if len(products.json()):
         for product in products.json():
 
             checkCategory = db.cursor(prepared=True)
@@ -514,7 +519,12 @@ def scheduled(b):
                 updateItem = db.cursor(prepared=True)
                 updateItem.execute("UPDATE `item` set `groupid`=%s WHERE `itemid`=%s",(product['group'], p['itemid']))
                 print("{name} group updated to {group}...".format(name=product['name'], group=product['group']))
+
+    else:
+        print('No products found, please check your config file for the branch id')
     
     #set the category to inactive if there are no active item found
     updateCategories = db.cursor()
     updateCategories.execute("UPDATE tblmenulist set isinactive=1 WHERE (SELECT count(*) FROM item WHERE iscategory=1 and `class`=tblmenulist.class and isinactive=0) = 0")
+
+

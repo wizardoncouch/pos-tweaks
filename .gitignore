@@ -5,3 +5,4 @@ orders.json
 /__pycache__
 /venv
 /flask_session
+.env
