@@ -3,12 +3,19 @@ from mysql import connector
 import requests
 from datetime import datetime
 import json
-import os
+from os import environ, path
 
 
 app = Flask(__name__)
 
-app.config.from_pyfile('settings.py')
+
+app.config['DB_HOST'] = environ.get('DB_HOST', 'localhost')
+app.config['DB_USER'] = environ.get('DB_USER', 'root')
+app.config['DB_PASSWORD'] = environ.get('DB_PASSWORD', 'mjm')
+app.config['DB_NAME'] = environ.get('DB_NAME', 'lite')
+app.config['DB_PORT'] = environ.get('DB_PORT', 3309)
+
+app.config['BRANCH_ID'] = environ.get('BRANCH_ID')
 
 
 db = connector.connect(
@@ -50,7 +57,7 @@ def config():
             json.dump(request.form, outfile)
 
     printers = {}
-    if os.path.isfile('printers.json'):
+    if path.isfile('printers.json'):
         p = open('printers.json')
         printers = dict(json.load(p))
         p.close()
@@ -273,7 +280,7 @@ def transaction():
             
             key = table
             sessionOrders = {}
-            if os.path.isfile('orders.json'):
+            if path.isfile('orders.json'):
                 p = open('orders.json')
                 sessionOrders = dict(json.load(p))
                 p.close()
