@@ -382,13 +382,13 @@ def accept():
             "qty": order_item_qty,
             "unit": item['uom']
         }
-        if item['printer2']:
+        if item['printer2'] > '':
             printables[item['printer2']].append(extobj)
-        if item['printer3']:
+        if item['printer3'] > '':
             printables[item['printer3']].append(extobj)
-        if item['printer4']:
+        if item['printer4'] > '':
             printables[item['printer4']].append(extobj)
-        if item['printer5']:
+        if item['printer5'] > '':
             printables[item['printer5']].append(extobj)
 
 
@@ -489,16 +489,14 @@ def voidItem():
 
     try:
         from escpos import printer
-        prntrs = []
-        if item['model']:
-            prntrs.append(item['model']) 
-        if item['printer2']:
+        prntrs = [item['model']]
+        if item['printer2'] > '':
             prntrs.append(item['printer2']) 
-        if item['printer3']:
+        if item['printer3'] > '':
             prntrs.append(item['printer3']) 
-        if item['printer4']:
+        if item['printer4'] > '':
             prntrs.append(item['printer4']) 
-        if item['printer5']:
+        if item['printer5'] > '':
             prntrs.append(item['printer5']) 
 
         for prntr in prntrs:
