@@ -181,8 +181,6 @@ def orders():
     orders = []
     total = 0
 
-    print(args.get('client'))
-
     if args.get('client'):
         with db.cursor(dictionary=True, prepared=True) as cursor:
             cursor.execute("SELECT * FROM salestran where client=%s ORDER by encoded ASC", (args.get('client'),))
