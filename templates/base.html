@@ -9,6 +9,64 @@
   <link rel="stylesheet" href="{{ url_for('static', filename= 'css/icons/bootstrap-icons.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename= 'css/style.css') }}">
   <title>POS Orders</title>
+  <style type="text/css">
+  /*******************************
+  * MODAL AS LEFT/RIGHT SIDEBAR
+  * Add "left" or "right" in modal parent div, after class="modal".
+  * Get free snippets on bootpen.com
+  *******************************/
+    .modal.left .modal-dialog,
+    .modal.right .modal-dialog {
+      position: fixed;
+      margin: auto;
+      width: 320px;
+      height: 100%;
+      -webkit-transform: translate3d(0%, 0, 0);
+          -ms-transform: translate3d(0%, 0, 0);
+          -o-transform: translate3d(0%, 0, 0);
+              transform: translate3d(0%, 0, 0);
+    }
+
+    .modal.left .modal-content,
+    .modal.right .modal-content {
+      height: 100%;
+      overflow-y: auto;
+    }
+    
+    .modal.left .modal-body,
+    .modal.right .modal-body {
+      padding: 15px 15px 80px;
+    }
+
+  /*Left*/
+    .modal.left.fade .modal-dialog{
+      left: -320px;
+      -webkit-transition: opacity 0.3s linear, left 0.3s ease-out;
+        -moz-transition: opacity 0.3s linear, left 0.3s ease-out;
+          -o-transition: opacity 0.3s linear, left 0.3s ease-out;
+              transition: opacity 0.3s linear, left 0.3s ease-out;
+    }
+    
+    .modal.left.fade.in .modal-dialog{
+      left: 0;
+    }
+          
+  /*Right*/
+    .modal.right.fade .modal-dialog {
+      right: -320px;
+      -webkit-transition: opacity 0.3s linear, right 0.3s ease-out;
+        -moz-transition: opacity 0.3s linear, right 0.3s ease-out;
+          -o-transition: opacity 0.3s linear, right 0.3s ease-out;
+              transition: opacity 0.3s linear, right 0.3s ease-out;
+    }
+    
+    .modal.right.fade.in .modal-dialog {
+      right: 0;
+    }
+    #modal-holder .modal-backdrop, #modal-holder .modal{
+      position:absolute !important;
+    }
+  </style>
 </head>
 
 <body>
@@ -24,7 +82,33 @@
     let markedBg = '#4788ff';
     let markedColor = '#fff';
 
+    function throttle(f, delay){
+      var timer = null;
+      return function(){
+          var context = this, args = arguments;
+          clearTimeout(timer);
+          timer = window.setTimeout(function(){
+              f.apply(context, args);
+          },
+          delay || 500);
+      };
+    }
+
     $(document).ready(function () {
+
+      $("body").on("click","#group-modal-button",function(){
+          $("#group-modal").modal("show");
+          $("#modal-holder").addClass("after_modal_appended");
+          //appending modal background inside the blue div
+          $('.modal-backdrop').appendTo('#modal-holder');
+          //remove the padding right and modal-open class from the body tag which bootstrap adds when a modal is shown
+        
+          $('body').removeClass("modal-open")
+          $('body').css("padding-right","");     
+      });
+      $('.modal').on('click', '.close', function(){
+          $("#group-modal").modal("hide");
+      });
       $('#remarksModal').hide();
 
       $('.orderLine').each(function () {
@@ -109,18 +193,16 @@
         getProducts(path);
       })
 
-      $('#search').on('input', function (e) {
-        if ($(this).val().length > 0) {
-          let path = '/products?search=' + $('#search').val();
-          getProducts(path);
+      $('#search').keyup(throttle(function(){
+        if ($('#search').val().length > 0) {
+            let path = '/products?search=' + $('#search').val();
+            getProducts(path);
         }
-      })
-        .focusout(function () {
-          $('#search').blur();
-        })
-        .keyup(function (e) {
-          if (e.keyCode == 13) $('#search').blur();
-        });
+      }, 1000));
+      $('#search').focusout(function(){ $(this).blur() });
+      $('#search').keyup(function(e){ 
+        if (e.keyCode == 13) $(this).blur();
+      });
 
       $(document).on('click', '.orderLine', function () {
         restoreColors();
