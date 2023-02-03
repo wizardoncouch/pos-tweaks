@@ -1,29 +1,30 @@
+import os
 from flask import Flask, render_template, request, make_response, redirect, session, jsonify
 from mysql import connector
 import requests
 from datetime import datetime
 import json
-from os import environ, path
+from dotenv import load_dotenv
 
 
 app = Flask(__name__)
 
+load_dotenv()
 
-app.config['DB_HOST'] = environ.get('DB_HOST', 'localhost')
-app.config['DB_USER'] = environ.get('DB_USER', 'root')
-app.config['DB_PASSWORD'] = environ.get('DB_PASSWORD', 'mjm')
-app.config['DB_NAME'] = environ.get('DB_NAME', 'lite')
-app.config['DB_PORT'] = environ.get('DB_PORT', 3309)
+dbhost = os.environ.get('DB_HOST', 'localhost')
+dbuser = os.environ.get('DB_USER', 'root')
+dbpassword = os.environ.get('DB_PASSWORD', 'mjm')
+dbname = os.environ.get('DB_NAME', 'lite')
+dbport = os.environ.get('DB_PORT', 3309)
 
-app.config['BRANCH_ID'] = environ.get('BRANCH_ID')
-
+branch_id = os.environ.get('BRANCH_ID')
 
 db = connector.connect(
-    host=app.config.get('DB_HOST'),
-    user=app.config.get('DB_USER'),
-    password=app.config.get('DB_PASSWORD'),
-    database=app.config.get('DB_NAME'),
-    port=app.config.get('DB_PORT')
+    host=dbhost,
+    user=dbuser,
+    password=dbpassword,
+    database=dbname,
+    port=dbport
 )
 
 dash = "---------------------------------"
@@ -57,7 +58,7 @@ def config():
             json.dump(request.form, outfile)
 
     printers = {}
-    if path.isfile('printers.json'):
+    if os.path.isfile('printers.json'):
         p = open('printers.json')
         printers = dict(json.load(p))
         p.close()
@@ -519,8 +520,7 @@ def voidItem():
 @app.cli.command()
 # @click.option('--b')
 def scheduled():
-    b = app.config.get('BRANCH_ID')
-    products = requests.get('https://pp.d3.net/api.php?action=products&branch=' + b)
+    products = requests.get('https://pp.d3.net/api.php?action=products&branch=' + branch_id)
     productInactive = db.cursor()
     productInactive.execute("UPDATE `item` set `isinactive`=1 WHERE `barcode` != ''")
     
@@ -548,6 +548,7 @@ def scheduled():
                         cursor.close()
 
 
+            p = None
             with db.cursor(dictionary=True) as cursor:
                 cursor.execute("SELECT * FROM `item` WHERE `barcode`='{uid}'".format(uid=product['uid']))
                 p = cursor.fetchone()
@@ -558,7 +559,7 @@ def scheduled():
                         classPrinter = cursor.fetchone()
                         model = classPrinter['model'] if classPrinter else ''
                     
-                    with db.cursor(prepared=True) as cursor:
+                    with db.cursor(prepared=True, dictionary=True) as cursor:
                         cursor.execute("""INSERT INTO `item`(`barcode`, `itemname`, `shortname`, `groupid`, `part`, `class`, `uom`, `dlock`, `amt`,  `taxable`, `model`) 
                                                     VALUES  (%s,        %s,         %s,          %s,        'MENU', %s,      %s,    NOW(),   %s,     1,         %s     )""",
                                                             (product['uid'], product['name'], product['name'], product['group'], product['category'], product['unit'], product['price'], model))
@@ -567,9 +568,10 @@ def scheduled():
                         p = cursor.fetchone()
                         cursor.close()
             
-            with db.cursor(prepared=True) as cursor:
-                cursor.execute("UPDATE `item` set `isinactive`=0 WHERE `itemid`=%s",(p['itemid'],))
-                cursor.close()
+            if p:
+                with db.cursor(prepared=True) as cursor:
+                    cursor.execute("UPDATE `item` set `isinactive`=0 WHERE `itemid`=%s",(p['itemid'],))
+                    cursor.close()
 
             if float(product['price']) != float(p['amt']):
                 with db.cursor(prepared=True) as cursor:
@@ -600,3 +602,5 @@ def scheduled():
         cursor.close()
 
 
+if __name__ == '__main__':
+    app.run(port=8080,host='0.0.0.0',threaded=False)
