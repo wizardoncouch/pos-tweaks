@@ -437,25 +437,25 @@ def accept():
         from escpos import printer
         for prntr in printables:
             printerIP =  printers[prntr]
+            if printerIP:
+                p = printer.Network(printerIP)
+                date = datetime.now()
+                p.set(font='A')
+                p.text(dash)
+                p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
+                p.text("\n\nTable: {table}\n\n".format(table=table['clientname']))
 
-            p = printer.Network(printerIP)
-            date = datetime.now()
-            p.set(font='A')
-            p.text(dash)
-            p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
-            p.text("\n\nTable: {table}\n\n".format(table=table['clientname']))
-
-            for row in printables[prntr]:
-                p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
-                if 'cntr' in row and row['cntr'] > 0:
-                    i = insertables[row['cntr']]
-                    insertTransaction = db.cursor(prepared=True)
-                    insertTransaction.execute("""
-                        INSERT INTO salestran   (`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
-                                    VALUES      (%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       %s,        1,         CURRENT_DATE()       )""",
-                                    (i['client'], i['clientname'], i['barcode'], i['itemname'], i['amount'], i['qty'], i['unit'], i['group'], i['waiter'], i['osno'], i['screg'], i['scsenior'], i['ccode'], i['source'], i['remarks']))
-            p.text("\n{dash}\n\n\n".format(dash=dash))
-            p.cut() 
+                for row in printables[prntr]:
+                    p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
+                    if 'cntr' in row and row['cntr'] > 0:
+                        i = insertables[row['cntr']]
+                        insertTransaction = db.cursor(prepared=True)
+                        insertTransaction.execute("""
+                            INSERT INTO salestran   (`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
+                                        VALUES      (%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       %s,        1,         CURRENT_DATE()       )""",
+                                        (i['client'], i['clientname'], i['barcode'], i['itemname'], i['amount'], i['qty'], i['unit'], i['group'], i['waiter'], i['osno'], i['screg'], i['scsenior'], i['ccode'], i['source'], i['remarks']))
+                p.text("\n{dash}\n\n\n".format(dash=dash))
+                p.cut() 
         return make_response(jsonify({'success': 'Orders Printed'}))
     except:
         return make_response(jsonify({'error': 'Printer error'}))
@@ -479,7 +479,8 @@ def voidItem():
 
     getItem = db.cursor(dictionary=True, prepared=True)
     getItem.execute("""
-        SELECT i.model, st.itemname as itemname, st.isqty as qty, st.line, st.client, st.clientname, st.barcode FROM `salestran` as st
+        SELECT i.model, i.printer2, i.printer3, i.printer4, i.printer5, st.itemname as itemname, st.isqty as qty, st.line, st.client, st.clientname, st.barcode 
+        FROM `salestran` as st
         LEFT JOIN `item` as i ON st.barcode = i.barcode
         WHERE st.client = %s and st.line = %s""", (client, line,))
     item = getItem.fetchone()
@@ -489,7 +490,8 @@ def voidItem():
 
     try:
         from escpos import printer
-        prntrs = [item['model']]
+        prntr = item['model'] if item['model'] and item['model'] in printers else printers['default']
+        prntrs = [prntr]
         if item['printer2'] > '':
             prntrs.append(item['printer2']) 
         if item['printer3'] > '':
@@ -498,22 +500,22 @@ def voidItem():
             prntrs.append(item['printer4']) 
         if item['printer5'] > '':
             prntrs.append(item['printer5']) 
-
+        
         for prntr in prntrs:
             printerIP =  printers[prntr]
+            if printerIP:
+                p = printer.Network(printerIP)
+                date = datetime.now()
+                p.set(font='A')
+                p.text(dash)
+                p.text("\n\nVoid Slip")
+                p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
+                p.text("\n\nTable: {table}\n\n".format(table=item['clientname']))
 
-            p = printer.Network(printerIP)
-            date = datetime.now()
-            p.set(font='A')
-            p.text(dash)
-            p.text("\n\nVoid Slip")
-            p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
-            p.text("\n\nTable: {table}\n\n".format(table=item['clientname']))
+                p.text("\n"+str(item['qty']).rstrip('.0') + " - " + item['itemname'] + " !!! void void void !!! " + "\n")
 
-            p.text("\n"+str(item['qty']).rstrip('.0') + " - " + item['itemname'] + " !!! void void void !!! " + "\n")
-
-            p.text("\n{dash}\n\n\n".format(dash=dash))
-            p.cut()
+                p.text("\n{dash}\n\n\n".format(dash=dash))
+                p.cut()
 
         deleteItem = db.cursor(dictionary=True, prepared=True)
         deleteItem.execute("""
