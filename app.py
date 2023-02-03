@@ -369,21 +369,27 @@ def accept():
         order_item_qty = order_item['qty']
         order_item_remarks = order_item['remarks']
 
-        obj = {
+        printables[prntr].append({
             "cntr": cntr,
+            "barcode": item['barcode'],
+            "name": item['itemname'] + ("\n!!! "+order_item_remarks+" !!!" if order_item_remarks else ""),
+            "qty": order_item_qty,
+            "unit": item['uom']
+        })
+        extobj = {
             "barcode": item['barcode'],
             "name": item['itemname'] + ("\n!!! "+order_item_remarks+" !!!" if order_item_remarks else ""),
             "qty": order_item_qty,
             "unit": item['uom']
         }
         if item['printer2']:
-            printables[item['printer2']].append(obj)
+            printables[item['printer2']].append(extobj)
         if item['printer3']:
-            printables[item['printer3']].append(obj)
+            printables[item['printer3']].append(extobj)
         if item['printer4']:
-            printables[item['printer4']].append(obj)
+            printables[item['printer4']].append(extobj)
         if item['printer5']:
-            printables[item['printer5']].append(obj)
+            printables[item['printer5']].append(extobj)
 
 
         getTransaction = db.cursor(prepared=True, dictionary=True)
@@ -441,12 +447,13 @@ def accept():
 
             for row in printables[prntr]:
                 p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
-                i = insertables[row['cntr']]
-                insertTransaction = db.cursor(prepared=True)
-                insertTransaction.execute("""
-                    INSERT INTO salestran   (`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
-                                VALUES      (%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       %s,        1,         CURRENT_DATE()       )""",
-                                (i['client'], i['clientname'], i['barcode'], i['itemname'], i['amount'], i['qty'], i['unit'], i['group'], i['waiter'], i['osno'], i['screg'], i['scsenior'], i['ccode'], i['source'], i['remarks']))
+                if 'cntr' in row and row['cntr'] > 0:
+                    i = insertables[row['cntr']]
+                    insertTransaction = db.cursor(prepared=True)
+                    insertTransaction.execute("""
+                        INSERT INTO salestran   (`client`, `clientname`, `barcode`, `itemname`, `isamt`, `isqty`, `uom`, `grp`, `waiter`, `osno`, `screg`, `scsenior`, `ccode`, `source`, `remarks`, `isprint`, dateid)
+                                    VALUES      (%s,       %s,           %s,        %s,         %s,      %s,       %s,    %s,    %s,       %s,     %s,      %s,         %s,      %s,       %s,        1,         CURRENT_DATE()       )""",
+                                    (i['client'], i['clientname'], i['barcode'], i['itemname'], i['amount'], i['qty'], i['unit'], i['group'], i['waiter'], i['osno'], i['screg'], i['scsenior'], i['ccode'], i['source'], i['remarks']))
             p.text("\n{dash}\n\n\n".format(dash=dash))
             p.cut() 
         return make_response(jsonify({'success': 'Orders Printed'}))
@@ -482,20 +489,33 @@ def voidItem():
 
     try:
         from escpos import printer
-        printerIP =  printers[item['model']]
+        prntrs = []
+        if item['model']:
+            prntrs.append(item['model']) 
+        if item['printer2']:
+            prntrs.append(item['printer2']) 
+        if item['printer3']:
+            prntrs.append(item['printer3']) 
+        if item['printer4']:
+            prntrs.append(item['printer4']) 
+        if item['printer5']:
+            prntrs.append(item['printer5']) 
 
-        p = printer.Network(printerIP)
-        date = datetime.now()
-        p.set(font='A')
-        p.text(dash)
-        p.text("\n\nVoid Slip")
-        p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
-        p.text("\n\nTable: {table}\n\n".format(table=item['clientname']))
+        for prntr in prntrs:
+            printerIP =  printers[prntr]
 
-        p.text("\n"+str(item['qty']).rstrip('.0') + " - " + item['itemname'] + " !!! void void void !!! " + "\n")
+            p = printer.Network(printerIP)
+            date = datetime.now()
+            p.set(font='A')
+            p.text(dash)
+            p.text("\n\nVoid Slip")
+            p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
+            p.text("\n\nTable: {table}\n\n".format(table=item['clientname']))
 
-        p.text("\n{dash}\n\n\n".format(dash=dash))
-        p.cut()
+            p.text("\n"+str(item['qty']).rstrip('.0') + " - " + item['itemname'] + " !!! void void void !!! " + "\n")
+
+            p.text("\n{dash}\n\n\n".format(dash=dash))
+            p.cut()
 
         deleteItem = db.cursor(dictionary=True, prepared=True)
         deleteItem.execute("""
