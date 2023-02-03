@@ -191,7 +191,9 @@ def orders():
                 "qty": order['isqty'],
                 "amount": amount,
                 "remarks": order['remarks'],
-                "printed": order['isprint']
+                "printed": order['isprint'],
+                "group": order['grp'],
+                "senior": order['scsenior']
             })
             total += amount
 
@@ -347,19 +349,42 @@ def accept():
         item = getItemFromSession.fetchone()
 
         prntr = item['model'] if item['model'] and item['model'] in printers else printers['default']
+
+
         if not prntr in printables:
             printables[prntr] = []
+        
+        if item['printer2'] and not item['printer2'] in printables:
+            printables[item['printer2']] = []
+
+        if item['printer3'] and not item['printer3'] in printables:
+            printables[item['printer3']] = []
+
+        if item['printer4'] and not item['printer4'] in printables:
+            printables[item['printer4']] = []
+
+        if item['printer5'] and not item['printer5'] in printables:
+            printables[item['printer5']] = []
 
         order_item_qty = order_item['qty']
         order_item_remarks = order_item['remarks']
 
-        printables[prntr].append({
+        obj = {
             "cntr": cntr,
             "barcode": item['barcode'],
             "name": item['itemname'] + ("\n!!! "+order_item_remarks+" !!!" if order_item_remarks else ""),
             "qty": order_item_qty,
             "unit": item['uom']
-        })
+        }
+        if item['printer2']:
+            printables[item['printer2']].append(obj)
+        if item['printer3']:
+            printables[item['printer3']].append(obj)
+        if item['printer4']:
+            printables[item['printer4']].append(obj)
+        if item['printer5']:
+            printables[item['printer5']].append(obj)
+
 
         getTransaction = db.cursor(prepared=True, dictionary=True)
         getTransaction.execute("SELECT * FROM salestran WHERE `client`=%s LIMIT 1", (table['client'],))
