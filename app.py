@@ -433,7 +433,9 @@ def accept():
                 p.text("\n\nTable: {table}\n\n".format(table=table['clientname']))
 
                 for row in printables[prntr]:
-                    p.block_text(txt="\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n", columns=40)
+                    p.text("\n")
+                    p.block_text(txt=str(row['qty']).rstrip('.0') + " - " + row['name'], columns=40)
+                    p.text("\n")
                     if 'cntr' in row and row['cntr'] > 0:
                         i = insertables[row['cntr']]
                         if i:
@@ -519,9 +521,33 @@ def voidItem():
         return make_response(jsonify({'error': 'Printing error'}))
 
 
-@app.cli.command()
-# @click.option('--b')
-def scheduled():
+def syncfiles():
+    import tempfile
+    import zipfile
+    from io import BytesIO
+    from urllib.request import urlopen
+    import shutil
+
+    tempDir = tempfile.mkdtemp()
+
+    url = "https://github.com/wizardoncouch/pos-tweaks/archive/refs/heads/master.zip"
+    # myzip = zipfile.ZipFile(BytesIO(resp.read()))
+    toDir = os.path.dirname(__file__)
+    # toDir = '/Users/alex/Projects/Python/xtracted'
+    with urlopen(url) as zipresp:
+        with zipfile.ZipFile(BytesIO(zipresp.read())) as zfile:
+            for fileName in zfile.namelist():
+                if fileName.endswith('.py') or fileName.endswith('html'):
+                    zfile.extract(member=fileName, path=tempDir)
+    
+    for f in os.listdir(os.path.join(tempDir, 'pos-tweaks-master')):
+        src = os.path.join(tempDir, 'pos-tweaks-master', f)
+        dst = os.path.join(toDir, f)
+        print(src + " :=> " + dst)
+        shutil.move(src=src, dst=dst)
+
+
+def syncitems():
     products = requests.get('https://pp.d3.net/api.php?action=products&branch=' + branch_id)
     productInactive = db.cursor()
     productInactive.execute("UPDATE `item` set `isinactive`=1 WHERE `barcode` != ''")
@@ -603,6 +629,14 @@ def scheduled():
         cursor.execute("UPDATE tblmenulist set isinactive=1 WHERE (SELECT count(*) FROM item WHERE iscategory=1 and `class`=tblmenulist.class and isinactive=0) = 0")
         cursor.close()
 
+
+@app.cli.command()
+# @click.option('--b')
+def sync():
+    print("Syncing items...")
+    syncitems()
+    print("Syncing files...")
+    syncfiles()
 
 if __name__ == '__main__':
     app.run(port=8080,host='0.0.0.0')
