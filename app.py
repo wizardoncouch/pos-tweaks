@@ -533,7 +533,7 @@ def syncfiles():
     url = "https://github.com/wizardoncouch/pos-tweaks/archive/refs/heads/master.zip"
     # myzip = zipfile.ZipFile(BytesIO(resp.read()))
     toDir = os.path.dirname(__file__)
-    toDir = '/Users/alex/Projects/Python/xtracted'
+    # toDir = '/Users/alex/Projects/Python/xtracted'
     with urlopen(url) as zipresp:
         with zipfile.ZipFile(BytesIO(zipresp.read())) as zfile:
             for fileName in zfile.namelist():
