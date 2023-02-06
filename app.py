@@ -431,7 +431,7 @@ def accept():
                 p.text("\n\nTable: {table}\n\n".format(table=table['clientname']))
 
                 for row in printables[prntr]:
-                    p.text("\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n")
+                    p.block_text(txt="\n"+str(row['qty']).rstrip('.0') + " - " + row['name'] + "\n", columns=40)
                     if 'cntr' in row and row['cntr'] > 0:
                         i = insertables[row['cntr']]
                         if i:
