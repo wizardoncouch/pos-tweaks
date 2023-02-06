@@ -544,6 +544,8 @@ def syncfiles():
         src = os.path.join(tempDir, 'pos-tweaks-master', f)
         dst = os.path.join(toDir, f)
         print(src + " :=> " + dst)
+        if os.path.isfile(dst):
+            os.remove(dst)
         shutil.move(src=src, dst=dst)
 
 

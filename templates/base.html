@@ -10,6 +10,22 @@
   <link rel="stylesheet" href="{{ url_for('static', filename= 'css/style.css') }}">
   <title>POS Orders</title>
   <style type="text/css">
+    .box{
+        position: relative;
+        float: left;
+        text-align: center;
+        margin-left: 5px;
+        margin-top: 5px;
+        width: 112px;
+        height: 112px;
+        background: #f9e665;
+        cursor: pointer;
+        font-size: 10px;
+        line-height: 10px;
+        /* box-shadow: 0px 0px 1px 1px #999; */
+        overflow: hidden;
+        color: #130f40;
+    }
   /*******************************
   * MODAL AS LEFT/RIGHT SIDEBAR
   * Add "left" or "right" in modal parent div, after class="modal".
@@ -402,12 +418,20 @@
         let products = response['products'];
         let subProducts = response['subProducts'];
 
+        if(subProducts.length > 0){
+          $('#products-container').css({height: '50%'});
+          $('#sub-products-container').css({height: '50%'});
+        }else{
+          $('#products-container').css({height: '100%'});
+          $('#sub-products-container').css({height: '0%'});
+        }
+
         $('#products').find('.product')
           .remove()
           .end()
 
         products.forEach(product => {
-          $('#products').append('<div class="col h-100 mt-1 product"><div class="col h-100 ' + (product.barcode > '' ? 'addItem' : 'showMoreProducts') + '" data-barcode="' + product.barcode + '" data-name="' + product.itemname + '"  data-price="' + product.amt + '" data-category="' + product.class + '" data-group="' + product.itemname + '"><button type="button" class="btn btn-light w-100 h-100 text-button-label">' + product.itemname + '</button></div></div>')
+          $('#products').append('<div class="box mb-2 product ' + (product.barcode > '' ? 'addItem' : 'showMoreProducts') + '" data-barcode="' + product.barcode + '" data-name="' + product.itemname + '"  data-price="' + product.amt + '" data-category="' + product.class + '" data-group="' + product.itemname + '"><button type="button" class="btn btn-light w-100 h-100 text-button-label">' + product.itemname + '</button></div>')
         });
 
         $('#subProducts').find('.subProduct')
@@ -415,7 +439,7 @@
           .end()
 
         subProducts.forEach(subProduct => {
-          $('#subProducts').append('<div class="col h-100 addItem subProduct" data-barcode="' + subProduct.barcode + '" data-name="' + subProduct.itemname + '"  data-price="' + subProduct.amt + '"><button type="button" class="btn btn-light w-100 h-100 text-button-label">' + subProduct.itemname + '</button></div>')
+          $('#subProducts').append('<div class="box mb-2 addItem subProduct" data-barcode="' + subProduct.barcode + '" data-name="' + subProduct.itemname + '"  data-price="' + subProduct.amt + '"><button type="button" class="btn btn-light w-100 h-100 text-button-label">' + subProduct.itemname + '</button></div>')
         });
       });
     }

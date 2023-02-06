@@ -46,8 +46,8 @@
     </div>
     <div style="position:fixed; margin-top:60px; margin-left:30%; height:calc(100% - 60px); width:calc(100% - 30%);" class="d-flex">
         <div id="modal-holder" style="height:100%; width:calc(100% - 100px); position:relative;">
-            <div style="height:50%; overflow:auto; border-bottom:1px solid gray; padding:5px;">
-                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-6" id="products">
+            <div id="products-container" style="height:100%; overflow:auto; padding:5px;">
+                <div id="products" style="flex:1 1 auto; min-height:1px;">
                     <!-- {%for product in data.products%}
                         <div class="col h-100 mt-1">
                             {%if product.barcode > ''%}
@@ -63,8 +63,8 @@
                     {%endfor%} -->
                 </div>
             </div>
-            <div style="height:50%; overflow:auto; padding:5px;">
-                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-6 " id="subProducts">
+            <div id="sub-products-container" style="height:0%; overflow:auto; padding:5px; border-top:1px solid gray;">
+                <div id="subProducts" style="flex:1 1 auto; min-height:1px;">
                     <!-- {%for subProduct in data.subProducts%}
                         <div class="col h-100 addItem" data-barcode="{{subProduct.barcode}}" data-name="{{subProduct.itemname}}"  data-price="{{subProduct.amt}}">
                             <button type="button" class="btn btn-light w-100 h-100 text-button-label">{{subProduct.itemname}}</button>
