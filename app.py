@@ -19,6 +19,8 @@ dbport = os.environ.get('DB_PORT', 3309)
 
 branch_id = os.environ.get('BRANCH_ID')
 
+printersFile = os.path.join(os.path.dirname(__file__), 'printers.json')
+
 db = connector.connect(
     host=dbhost,
     user=dbuser,
@@ -54,12 +56,12 @@ def ssql(scode, arrfields):
 def config():
 
     if request.method == "POST":
-        with open("printers.json", "w") as outfile:
+        with open(printersFile, "w") as outfile:
             json.dump(request.form, outfile)
 
     printers = {}
-    if os.path.isfile('printers.json'):
-        p = open('printers.json')
+    if os.path.isfile(printersFile):
+        p = open(printersFile)
         printers = dict(json.load(p))
         p.close()
 
@@ -312,7 +314,7 @@ def accept():
             return make_response(jsonify({'error': 'No table passed'}), 422)
         cursor.close()
 
-    p = open('printers.json')
+    p = open(printersFile)
     printers = dict(json.load(p))
     p.close()
 
@@ -462,7 +464,7 @@ def voidItem():
     if line is None:
         return make_response(jsonify({'error': 'No line passed'}), 422)
 
-    p = open('printers.json')
+    p = open(printersFile)
     printers = dict(json.load(p))
     p.close()
 
@@ -603,4 +605,4 @@ def scheduled():
 
 
 if __name__ == '__main__':
-    app.run(port=8080,host='0.0.0.0',threaded=False)
+    app.run(port=8080,host='0.0.0.0')
