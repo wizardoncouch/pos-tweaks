@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template, request, make_response, redirect, session, jsonify
-from mysql import connector
+import mysql.connector
+from mysql.connector import Error
 import requests
 from datetime import datetime
 import json
@@ -11,23 +12,44 @@ app = Flask(__name__)
 
 load_dotenv()
 
-dbhost = os.environ.get('DB_HOST', 'localhost')
-dbuser = os.environ.get('DB_USER', 'root')
-dbpassword = os.environ.get('DB_PASSWORD', 'mjm')
-dbname = os.environ.get('DB_NAME', 'lite')
-dbport = os.environ.get('DB_PORT', 3309)
 
 branch_id = os.environ.get('BRANCH_ID')
 
 printersFile = os.path.join(os.path.dirname(__file__), 'printers.json')
 
-db = connector.connect(
-    host=dbhost,
-    user=dbuser,
-    password=dbpassword,
-    database=dbname,
-    port=dbport
-)
+try:
+    connection_config_dict = {
+        'user': os.environ.get('DB_USER', 'root'),
+        'password': os.environ.get('DB_PASSWORD', 'mjm'),
+        'host': os.environ.get('DB_HOST', '127.0.0.1'),
+        'database': os.environ.get('DB_NAME', 'lite'),
+        'port': os.environ.get('DB_PORT', 3309),
+        'raise_on_warnings': True,
+        'use_pure': True,
+        'autocommit': True,
+        'pool_size': 5
+    }
+
+    db = mysql.connector.connect(**connection_config_dict)
+
+    if db.is_connected():
+        db_Info = db.get_server_info()
+        print("Connected to MySQL Server version ", db_Info)
+        cursor = db.cursor()
+        # global connection timeout arguments
+        global_connect_timeout = 'SET GLOBAL connect_timeout=180'
+        global_wait_timeout = 'SET GLOBAL connect_timeout=180'
+        global_interactive_timeout = 'SET GLOBAL connect_timeout=180'
+
+        cursor.execute(global_connect_timeout)
+        cursor.execute(global_wait_timeout)
+        cursor.execute(global_interactive_timeout)
+
+        db.commit()
+        cursor.close()
+except Error as e:
+    exit("Error while connecting to MySQL", e)
+
 
 dash = "---------------------------------"
 def ssql(scode, arrfields):
@@ -531,9 +553,7 @@ def syncfiles():
     tempDir = tempfile.mkdtemp()
 
     url = "https://github.com/wizardoncouch/pos-tweaks/archive/refs/heads/master.zip"
-    # myzip = zipfile.ZipFile(BytesIO(resp.read()))
     toDir = os.path.dirname(__file__)
-    # toDir = '/Users/alex/Projects/Python/xtracted'
     with urlopen(url) as zipresp:
         with zipfile.ZipFile(BytesIO(zipresp.read())) as zfile:
             for fileName in zfile.namelist():
