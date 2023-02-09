@@ -190,7 +190,7 @@ match action:
         last_number = last['number']
 
         with db.cursor(prepared=True, dictionary=True) as cursor:
-            cursor.execute("SELECT * FROM `glhead` WHERE `docno` > %s ORDER BY `docno` ASC LIMIT 3", (last_number,))
+            cursor.execute("SELECT * FROM `glhead` WHERE `docno` > %s ORDER BY `docno` ASC", (last_number,))
             sales = []
             for sale in cursor.fetchall():
                 cursor.execute("""SELECT g.*,i.barcode 
