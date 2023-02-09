@@ -619,6 +619,12 @@ def syncitems():
                         print("{name} is inserted...".format(name=product['name']))
                         cursor.execute("SELECT * FROM `item` WHERE itemid=last_insert_id()")
                         p = cursor.fetchone()
+                        cursor.execute("SELECT * FROM `itemdlock` WHERE `itemid`=%s", (p['itemid'], ))
+                        dlock = cursor.fetchone()
+                        if dlock:
+                            cursor.execute("UPDATE `itemdlock` SET `dlock`=%s WHERE `itemid`=%s", (p['dlock'], p['itemid']))
+                        else:
+                            cursor.execute("INSERT INTO `itemdlock`(`itemid`, `dlock`) VALUES(%s, %s)", (p['itemid'], p['dlock']))
                         cursor.close()
             
             if p:
@@ -658,10 +664,10 @@ def syncitems():
 @app.cli.command()
 # @click.option('--b')
 def sync():
-    print("Syncing items...")
-    syncitems()
     print("Syncing files...")
     syncfiles()
+    print("Syncing items...")
+    syncitems()
 
 if __name__ == '__main__':
     app.run(port=8080,host='0.0.0.0')
