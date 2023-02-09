@@ -169,7 +169,7 @@ match action:
             format_ids = "({})".format(','.join([str(i) for i in itemids]))
             with db.cursor() as cursor:
                 cursor.execute("UPDATE `item` set `isinactive`=1 WHERE `itemid` NOT IN %s" % format_ids)
-                print("inactive products = {}".format(cursor.rowcount))
+                print("products set to inactive = {}".format(cursor.rowcount))
                 cursor.close()
 
         #set the category to inactive if there are no active item found
