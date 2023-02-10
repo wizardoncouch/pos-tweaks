@@ -5,7 +5,6 @@ import requests
 from datetime import datetime
 import json
 from dotenv import load_dotenv
-import time
 
 load_dotenv()
 
@@ -181,53 +180,50 @@ match action:
             cursor.close()
 
     case "sales":
-        while True:
-            print("Uploading sales...")
-            response = requests.get('https://pp.d3.net/api.php?action=last-sync&branch=' + branch_id, headers=requests_headers)
-            if response is None:
-                exit('Cannot connect...')
+        print("Uploading sales...")
+        response = requests.get('https://pp.d3.net/api.php?action=last-sync&branch=' + branch_id, headers=requests_headers)
+        if response is None:
+            exit('Cannot connect...')
 
-            last = dict(response.json())
-            if last['code'] != 200:
-                exit('Error code: '+str(last['code']))
+        last = dict(response.json())
+        if last['code'] != 200:
+            exit('Error code: '+str(last['code']))
+        
+        last_number = last['number']
+
+        with db.cursor(prepared=True, dictionary=True) as cursor:
+            cursor.execute("SELECT * FROM `glhead` WHERE `docno` > %s ORDER BY `docno` ASC", (last_number,))
+            sales = []
+            for sale in cursor.fetchall():
+                cursor.execute("""SELECT g.*,i.barcode 
+                                    FROM `glstock` as g 
+                                    LEFT JOIN `item` as i ON i.itemid = g.itemid
+                                    WHERE g.`trno`=%s""" % sale['trno'])
+                sales.append(dict({
+                    'number': sale['docno'],
+                    'created': sale['printtime'].strftime("%Y-%m-%d %H:%M:%S") if sale['printtime'] else '',
+                    'total': float(sale['amt']),
+                    'remarks': sale['rem'],
+                    'items': [dict({
+                        'uid': item['barcode'] if item['barcode'] else 0,
+                        'name': item['itemname'],
+                        'amount': float(item['ext']),
+                        'qty': float(item['isqty']),
+                        'created': item['createdate'].strftime("%Y-%m-%d %H:%M:%S") if item['createdate'] else ''
+                    }) for item in cursor.fetchall()]
+                }))
+
+            cursor.close()
+
+            payload = {
+                "action": "sales",
+                "branch": branch_id,
+                "sales": json.dumps(sales)
+            }
+
+            response = requests.post("https://pp.d3.net/api.php", data=payload, headers=requests_headers)
             
-            last_number = last['number']
-
-            with db.cursor(prepared=True, dictionary=True) as cursor:
-                cursor.execute("SELECT * FROM `glhead` WHERE `docno` > %s ORDER BY `docno` ASC", (last_number,))
-                sales = []
-                for sale in cursor.fetchall():
-                    cursor.execute("""SELECT g.*,i.barcode 
-                                        FROM `glstock` as g 
-                                        LEFT JOIN `item` as i ON i.itemid = g.itemid
-                                        WHERE g.`trno`=%s""" % sale['trno'])
-                    sales.append(dict({
-                        'number': sale['docno'],
-                        'created': sale['printtime'].strftime("%Y-%m-%d %H:%M:%S") if sale['printtime'] else '',
-                        'total': float(sale['amt']),
-                        'remarks': sale['rem'],
-                        'items': [dict({
-                            'uid': item['barcode'] if item['barcode'] else 0,
-                            'name': item['itemname'],
-                            'amount': float(item['ext']),
-                            'qty': float(item['isqty']),
-                            'created': item['createdate'].strftime("%Y-%m-%d %H:%M:%S") if item['createdate'] else ''
-                        }) for item in cursor.fetchall()]
-                    }))
-
-                cursor.close()
-
-                payload = {
-                    "action": "sales",
-                    "branch": branch_id,
-                    "sales": json.dumps(sales)
-                }
-
-                response = requests.post("https://pp.d3.net/api.php", data=payload, headers=requests_headers)
-                
-                print(response.json())
-
-            time.sleep(600)
+            print(response.json())
 
     case "test":
         print('testing ...')
