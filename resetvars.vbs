@@ -1,5 +1,5 @@
 Set oShell = WScript.CreateObject("WScript.Shell")
-filename = oShell.ExpandEnvironmentStrings("%TEMP%\script-resetvars.bat")
+filename = oShell.ExpandEnvironmentStrings("%TEMP%\resetvars.bat")
 Set objFileSystem = CreateObject("Scripting.fileSystemObject")
 Set oFile = objFileSystem.CreateTextFile(filename, TRUE)
 

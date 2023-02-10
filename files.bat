@@ -1,6 +1,5 @@
 @echo off
 cd %~dp0
-set FLASK_APP=app.py
-call venv\Scripts\flask sync
+call venv\Scripts\python sync.py files
 NET STOP ApacheHTTPServer
 NET START ApacheHTTPServer
