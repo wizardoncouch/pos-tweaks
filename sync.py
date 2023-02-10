@@ -73,7 +73,7 @@ match action:
         with urlopen(url) as zipresp:
             with zipfile.ZipFile(BytesIO(zipresp.read())) as zfile:
                 for fileName in zfile.namelist():
-                    if fileName.endswith('.py') or fileName.endswith('html') or fileName.endswith('requirements.txt'):
+                    if fileName.endswith('.py') or fileName.endswith('.html') or fileName.endswith('requirements.txt') or fileName.endswith('.bat'):
                         zfile.extract(member=fileName, path=tempDir)
         
         for f in os.listdir(os.path.join(tempDir, 'pos-tweaks-master')):
