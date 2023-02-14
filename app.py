@@ -134,15 +134,13 @@ def floors():
         data['floors'] = [{
             'name': row['floor']
         } for row in cursor.fetchall()]
-        cursor.close()
 
-    floor = args.get('floor')
-    if floor is None and data['floors']:
-        floor = data['floors'][0]['name']
+        floor = args.get('floor')
+        if floor is None and data['floors']:
+            floor = data['floors'][0]['name']
     
-    if floor:
-        data['floor'] = floor
-        with db.cursor(dictionary=True, prepared=True) as cursor:
+        if floor:
+            data['floor'] = floor
             cursor.execute("""SELECT `clientname`, `client`, `clientid`, `locx`, `locy`, (SELECT count(*) from salestran WHERE client=client.client) as `ordercount` FROM `client` WHERE flr=%s""", (floor,))
             data['tables'] = [{
                 "id": table['clientid'],
@@ -151,7 +149,6 @@ def floors():
                 "top": table['locy'],
                 "inuse": True if table['ordercount'] > 0 else False
             } for table in cursor.fetchall()]
-            cursor.close()
 
     return render_template('tables.html', data = data)
 
