@@ -10,6 +10,7 @@ load_dotenv()
 
 
 branch_id = os.environ.get('BRANCH_ID')
+domain    = os.environ.get('DOMAIN')
 requests_headers = {'X-API-TOKEN': 'Hi8193YOls721e'}
 
  
@@ -18,7 +19,7 @@ if len(sys.argv) <= 1:
     exit('No action passed [options: files, items, sales, test]')
 
 action = sys.argv[1]
-if action not in ['files', 'items', 'sales', 'test']:
+if action not in ['files', 'items', 'sales','DynDNS', 'test']:
     exit('action options are: [files, items, sales, test]')
 
 db = None
@@ -225,6 +226,10 @@ match action:
             
             print(response.json())
 
+    case 'DynDNS':
+
+        response = requests.get('https://d3net.d3.net/api.php?action=DynDNS&domain='+domain, headers=requests_headers)
+   
     case "test":
         print('testing ...')
         response = requests.get('https://pp.d3.net/api.php?action=test', headers=requests_headers)
