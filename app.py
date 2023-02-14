@@ -129,7 +129,7 @@ def floors():
         "tables": []
     }
 
-    with db.cursor(dictionary=True) as cursor:
+    with db.cursor(dictionary=True, prepared=True) as cursor:
         cursor.execute("SELECT DISTINCT(flr) as floor FROM client WHERE isconsignee=1")
         data['floors'] = [{
             'name': row['floor']
