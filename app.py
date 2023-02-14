@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 
 branch_id = os.environ.get('BRANCH_ID')
