@@ -161,7 +161,7 @@ def orders():
         total += amount
 
     return make_response({
-        "orders":orders,
+        "orders": orders,
         "total": total
     })
 
