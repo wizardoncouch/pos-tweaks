@@ -86,11 +86,11 @@ def config():
     rows = db.session.execute(text("SELECT distinct(model) as printer from item where model > ''"))
     for row in rows:
         if default is None:
-            default = row['printer']
-        options.append(row['printer'])
+            default = row.printer
+        options.append(row.printer)
 
-        if row['printer'] not in printers:
-            printers[row['printer']] = ""
+        if row.printer not in printers:
+            printers[row.printer] = ""
     
     if 'default' in printers:
         del printers['default']
