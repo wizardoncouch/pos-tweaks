@@ -303,16 +303,9 @@ def accept():
         if item.printer5 > '':
             printables[item.printer5].append(extobj)
 
-        transaction = db.session.execute(text("SELECT * FROM salestran WHERE `client`='{table}' LIMIT 1".format(table=table.client)))
-        if transaction:
-            osno = transaction.osno
-            ccode = transaction.ccode
-            screg = transaction.screg
-            scsenior = transaction.scsenior
-            grp = transaction.grp
-            waiter = transaction.waiter
-            source = transaction.source
-        else:
+        transaction = db.session.execute(text("SELECT * FROM salestran WHERE `client`='{table}' LIMIT 1".format(table=table.client))).fetchone()
+        print(transaction)
+        if transaction is None:
             osno = None
             db.session.execute(text("INSERT INTO osnumber(tableno) VALUES('{table}')".format(table=table.client)))
             [osno] = db.session.execute(text("SELECT LAST_INSERT_ID()")).fetchone()
@@ -322,6 +315,14 @@ def accept():
             grp = 'A'
             waiter = 'Administrator'
             source = 'WH00001'
+        else:
+            osno = transaction.osno
+            ccode = transaction.ccode
+            screg = transaction.screg
+            scsenior = transaction.scsenior
+            grp = transaction.grp
+            waiter = transaction.waiter
+            source = transaction.source
 
         if osno > 0:
             insertables[cntr] = {
