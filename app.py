@@ -432,8 +432,9 @@ def voidItem():
 
                 p.text("\n{dash}\n\n\n".format(dash=dash))
                 p.cut()
-
-        db.session.execute(text("DELETE FROM `salestran` WHERE `client`='{client}' AND `line`='{line}'".format(client=client, line=line)))
+        delete = text("DELETE FROM `salestran` WHERE `client`='{client}' AND `line`='{line}'".format(client=client, line=line))
+        print(delete)
+        db.session.execute(delete)
 
         return make_response(jsonify({'success': 'Item Cancelled'}))
     except:
