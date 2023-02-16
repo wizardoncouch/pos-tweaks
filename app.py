@@ -125,6 +125,8 @@ def floors():
         "inuse": True if table.ordercount > 0 else False
     } for table in db.session.execute(sql)] 
 
+    data['floor'] = floor
+
     return render_template('tables.html', data = data)
 
 @app.route("/table/<id>")
