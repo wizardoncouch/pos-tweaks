@@ -417,24 +417,28 @@ def voidItem():
         if item.printer5 > '':
             prntrs.append(item.printer5) 
         
-        for prntr in prntrs:
-            printerIP =  printers[prntr]
-            if printerIP:
-                p = printer.Network(printerIP)
-                date = datetime.now()
-                p.set(font='A')
-                p.text(dash)
-                p.text("\n\nVoid Slip")
-                p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
-                p.text("\n\nTable: {table}\n\n".format(table=item.clientname))
+        try:
+            for prntr in prntrs:
+                printerIP =  printers[prntr]
+                if printerIP:
+                    p = printer.Network(printerIP)
+                    date = datetime.now()
+                    p.set(font='A')
+                    p.text(dash)
+                    p.text("\n\nVoid Slip")
+                    p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
+                    p.text("\n\nTable: {table}\n\n".format(table=item.clientname))
 
-                p.text("\n"+str(item.qty).rstrip('.0') + " - " + item.itemname + " !!! void void void !!! " + "\n")
+                    p.text("\n"+str(item.qty).rstrip('.0') + " - " + item.itemname + " !!! void void void !!! " + "\n")
 
-                p.text("\n{dash}\n\n\n".format(dash=dash))
-                p.cut()
-        delete = text("DELETE FROM `salestran` WHERE `client`='{client}' AND `line`='{line}'".format(client=client, line=line))
-        print(delete)
-        db.session.execute(delete)
+                    p.text("\n{dash}\n\n\n".format(dash=dash))
+                    p.cut()
+        except Exception as e:
+            print(str(e))
+        finally:
+            delete = text("DELETE FROM `salestran` WHERE `client`='{client}' AND `line`='{line}'".format(client=client, line=line))
+            print(delete)
+            db.session.execute(delete)
 
         return make_response(jsonify({'success': 'Item Cancelled'}))
     except:
