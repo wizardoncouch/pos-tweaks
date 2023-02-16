@@ -304,7 +304,6 @@ def accept():
             printables[item.printer5].append(extobj)
 
         transaction = db.session.execute(text("SELECT * FROM salestran WHERE `client`='{table}' LIMIT 1".format(table=table.client))).fetchone()
-        print(transaction)
         if transaction is None:
             osno = None
             db.session.execute(text("INSERT INTO osnumber(tableno) VALUES('{table}')".format(table=table.client)))
@@ -432,7 +431,7 @@ def voidItem():
                 p.text("\n{dash}\n\n\n".format(dash=dash))
                 p.cut()
 
-        db.cursor.execute(text("DELETE FROM `salestran` WHERE `client`='{client}' AND `line`='{line}'".format(client=client, line=line)))
+        db.session.execute(text("DELETE FROM `salestran` WHERE `client`='{client}' AND `line`='{line}'".format(client=client, line=line)))
 
         return make_response(jsonify({'success': 'Item Cancelled'}))
     except:
