@@ -83,16 +83,14 @@ def config():
 
     default = printers['default'] if "default" in printers else None
     options = []
-    with db.cursor(dictionary=True) as cursor:
-        cursor.execute("SELECT distinct(model) as printer from item where model > ''")
-        for row in cursor.fetchall():
-            if default is None:
-                default = row['printer']
-            options.append(row['printer'])
+    rows = db.session.execute(text("SELECT distinct(model) as printer from item where model > ''"))
+    for row in rows:
+        if default is None:
+            default = row['printer']
+        options.append(row['printer'])
 
-            if row['printer'] not in printers:
-                printers[row['printer']] = ""
-        cursor.close()
+        if row['printer'] not in printers:
+            printers[row['printer']] = ""
     
     if 'default' in printers:
         del printers['default']
@@ -162,7 +160,10 @@ def orders():
         })
         total += amount
 
-    return make_response(orders)
+    return make_response({
+        "orders":orders,
+        "total": total
+    })
 
 
 @app.route("/products", methods=['GET'])
