@@ -95,37 +95,8 @@
 
   <script>
 
-    let markedBg = '#4788ff';
-    let markedColor = '#fff';
-
-    function throttle(f, delay){
-      var timer = null;
-      return function(){
-          var context = this, args = arguments;
-          clearTimeout(timer);
-          timer = window.setTimeout(function(){
-              f.apply(context, args);
-          },
-          delay || 500);
-      };
-    }
 
     $(document).ready(function () {
-
-      $("body").on("click","#group-modal-button",function(){
-          $("#group-modal").modal("show");
-          $("#modal-holder").addClass("after_modal_appended");
-          //appending modal background inside the blue div
-          $('.modal-backdrop').appendTo('#modal-holder');
-          //remove the padding right and modal-open class from the body tag which bootstrap adds when a modal is shown
-        
-          $('body').removeClass("modal-open")
-          $('body').css("padding-right","");     
-      });
-      $('.modal').on('click', '.close', function(){
-          $("#group-modal").modal("hide");
-      });
-      $('#remarksModal').hide();
 
       $('.orderLine').each(function () {
         restoreColors();
@@ -190,55 +161,6 @@
         }
       });
 
-      getOrders();
-
-      OptimizeTableView();
-
-      $(document).on('click', '#category', function () {
-        let category = $(this).data('category');
-
-        let path = '/products?category=' + category;
-        getProducts(path);
-      })
-
-      $(document).on('click', '.showMoreProducts', function () {
-        let category = $(this).data('category');
-        let group = $(this).data('group');
-
-        let path = '/products?category=' + category + '&group=' + group;
-        getProducts(path);
-      })
-
-      $('#search').keyup(throttle(function(){
-        if ($('#search').val().length > 0) {
-            let path = '/products?search=' + $('#search').val();
-            getProducts(path);
-        }
-      }, 1000));
-      $('#search').focusout(function(){ $(this).blur() });
-      $('#search').keyup(function(e){ 
-        if (e.keyCode == 13) $(this).blur();
-      });
-
-      $(document).on('click', '.orderLine', function () {
-        restoreColors();
-        markedLine($(this));
-      });
-
-      $(document).on('click', '.addItem', function () {
-        $('#remarksModal').hide();
-
-        let barcode = $(this).data('barcode');
-        let name = $(this).data('name');
-        let price = parseFloat($(this).data('price')).toFixed(2);
-        let qty = 1;
-
-        $('#search').val('');
-
-        appendItem(barcode, name, qty, price);
-        totalPrice();
-        activateTools();
-      });
 
       $('.addQty').click(function () {
         if ($('.active').hasClass('printed')) {
@@ -354,9 +276,7 @@
 
     });
 
-    $(window).resize(function () {
-      OptimizeTableView();
-    });
+    
 
     function appendItem(barcode, name, qty, price, remarks = '') {
       restoreColors();
@@ -413,36 +333,6 @@
       });
     }
 
-    function getProducts(path) {
-      $.get(path).then(function (response) {
-        let products = response['products'];
-        let subProducts = response['subProducts'];
-
-        if(subProducts.length > 0){
-          $('#products-container').css({height: '50%'});
-          $('#sub-products-container').css({height: '50%'});
-        }else{
-          $('#products-container').css({height: '100%'});
-          $('#sub-products-container').css({height: '0%'});
-        }
-
-        $('#products').find('.product')
-          .remove()
-          .end()
-
-        products.forEach(product => {
-          $('#products').append('<div class="box mb-2 product ' + (product.barcode > '' ? 'addItem' : 'showMoreProducts') + '" data-barcode="' + product.barcode + '" data-name="' + product.itemname + '"  data-price="' + product.amt + '" data-category="' + product.class + '" data-group="' + product.itemname + '"><button type="button" class="btn btn-light w-100 h-100 text-button-label">' + product.itemname + '</button></div>')
-        });
-
-        $('#subProducts').find('.subProduct')
-          .remove()
-          .end()
-
-        subProducts.forEach(subProduct => {
-          $('#subProducts').append('<div class="box mb-2 addItem subProduct" data-barcode="' + subProduct.barcode + '" data-name="' + subProduct.itemname + '"  data-price="' + subProduct.amt + '"><button type="button" class="btn btn-light w-100 h-100 text-button-label">' + subProduct.itemname + '</button></div>')
-        });
-      });
-    }
 
     function totalPrice() {
       let total = 0;
@@ -454,48 +344,11 @@
       $('#total').text(total.toFixed(2));
     }
 
-    function OptimizeTableView() {
-
-      let maxx = 0;
-      let maxy = 0;
-      let tw = 100; // table with
-      let th = 50;  // table height
-      let fx = 1;
-      let fy = 1;
-      let headh = $('#floorSelect').length ? $('#floorSelect').height() : 0;
-      let ww = $(window).width();
-      let wh = $(window).height() - headh - 20;
-
-      // get max values
-      $('.tablex').each(function () {
-
-        let x = $(this).data('x');
-        if (x > maxx) maxx = x;
-
-        let y = $(this).data('y')
-        if (y > maxy) maxy = y;
-
-      });
-
-      if (maxx > ww) fx = ww / (maxx + tw);
-      if (maxy > wh) fy = wh / (maxy + th);
-      console.log(fx, fy);
-      // optimze view
-      $('.tablex').each(function () {
-        let x = ($(this).data('x') * fx);
-        let w = (tw * fx);
-        let y = ($(this).data('y') * fy);
-        let h = (th * fy);
-
-        $(this).css('left', x);
-        $(this).css('width', w);
-        $(this).css('top', y);
-        $(this).css('height', h);
-      });
-    }
+    
 
 
   </script>
+  {% block js %} {% endblock %}
 </body>
 
 </html>

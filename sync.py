@@ -1,12 +1,12 @@
 import os,sys
-import mysql.connector
-from mysql.connector import Error
 import requests
 from datetime import datetime
 import json
 from dotenv import load_dotenv
+from app import db
+from sqlalchemy import text
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 
 branch_id = os.environ.get('BRANCH_ID')
@@ -22,40 +22,6 @@ action = sys.argv[1]
 if action not in ['files', 'items', 'sales','DynDNS', 'test']:
     exit('action options are: [files, items, sales, test]')
 
-db = None
-if action in ['items', 'sales']:
-    try:
-        connection_config_dict = {
-            'user': os.environ.get('DB_USER', 'root'),
-            'password': os.environ.get('DB_PASSWORD', 'mjm'),
-            'host': os.environ.get('DB_HOST', '127.0.0.1'),
-            'database': os.environ.get('DB_NAME', 'lite'),
-            'port': os.environ.get('DB_PORT', 3309),
-            'raise_on_warnings': True,
-            'use_pure': True,
-            'autocommit': True,
-            'pool_size': 5
-        }
-
-        db = mysql.connector.connect(**connection_config_dict)
-
-        if db.is_connected():
-            db_Info = db.get_server_info()
-            print("Connected to MySQL Server version ", db_Info)
-            cursor = db.cursor()
-            # global connection timeout arguments
-            global_connect_timeout = 'SET GLOBAL connect_timeout=180'
-            global_wait_timeout = 'SET GLOBAL connect_timeout=180'
-            global_interactive_timeout = 'SET GLOBAL connect_timeout=180'
-
-            cursor.execute(global_connect_timeout)
-            cursor.execute(global_wait_timeout)
-            cursor.execute(global_interactive_timeout)
-
-            db.commit()
-            cursor.close()
-    except Error as e:
-        exit("Error while connecting to MySQL", e)
 
 if action == "files":
     print('Syncing files...')
@@ -94,25 +60,15 @@ elif action == "items":
     if len(products.json()):
         for product in products.json():
 
-            with db.cursor(prepared=True) as cursor:
-                cursor.execute("SELECT count(*) FROM tblmenulist WHERE `class`=%s and iscategory=1", (product['category'],))
-                category = cursor.fetchone()
-                cursor.close()
-                if category[0] == 0:
-                    with db.cursor(prepared=True) as cursor:
-                        cursor.execute("""INSERT INTO tblmenulist   (`class`,   `iscategory`,   `skincolor`,    `fontcolor`,    `dlock`) 
-                                                                VALUES      (%s,      %s,           %s,           %s,           NOW())""",
-                                                                            (product['category'], 1, '-8355712','-16777216'))
-                        cursor.close()
+            category = db.session.execute(text("SELECT count(*) as cnt FROM tblmenulist WHERE `class`='{cl}' and iscategory=1".format(cl=product['category']))).fetchone()
+            if category.cnt == 0:
+                db.session.execute(text("""INSERT INTO tblmenulist   (`class`,   `iscategory`,      `skincolor`,    `fontcolor`,    `dlock`) 
+                                                        VALUES      ('{cl}',      '{iscategory}',   '{skin}',       '{font}',        NOW())"""
+                                    .format(cl=product['category'], iscategory=1, skin='-8355712', font='-16777216')))
 
-            with db.cursor(prepared=True) as cursor:
-                cursor.execute("SELECT count(*) FROM `tblmenugrp` WHERE `grp`=%s", (product['group'],))
-                group = cursor.fetchone()
-                cursor.close()
-                if group[0] == 0:
-                    with db.cursor(prepared=True) as cursor:
-                        cursor.execute("INSERT INTO `tblmenugrp`(`grp`, `dlock`) VALUES(%s,NOW())",(product['group'],))
-                        cursor.close()
+            group = db.session.execute(text("SELECT count(*) as cnt FROM `tblmenugrp` WHERE `grp`='{group}'".format(group=product['group']))).fetchone()
+            if group.cnt == 0:
+                db.session.execute(text("INSERT INTO `tblmenugrp`(`grp`, `dlock`) VALUES('{group}',NOW())".format(product['group'])))
 
 
             p = None

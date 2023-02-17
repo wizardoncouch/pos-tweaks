@@ -1,28 +1,81 @@
-
 {% extends 'base.html' %}
 
 {% block content %}
-    <div class="vh-100">
-        {%if data.floors|length > 1%}
-            <div id="floorSelect" style="height:60px;" class="bg-light d-flex align-items-center justify-content-center">
-                <div class="w-100">
-                    <div class="d-flex align-items-center">
-                        {%for floor in data.floors%}
-                        <a class="d-flex justify-content-between text-decoration-none btn btn-sm text-uppercase {{ 'text-success fw-bold' if floor.name == data.floor else 'text-secondary'}}" href="?floor={{floor.name|urlencode}}">{{floor.name}} {%if floor.name == data.floor%}<i class="bi bi-check text-success"></i>{%endif%}</a>
-                        {%endfor%}
-                    </div>
-                </div>
+<div class="vh-100">
+    {%if data.floors|length > 1%}
+    <div id="floorSelect" style="height:60px;" class="bg-light d-flex align-items-center justify-content-center">
+        <div class="w-100">
+            <div class="d-flex align-items-center">
+                {%for floor in data.floors%}
+                <a class="d-flex justify-content-between text-decoration-none btn btn-sm text-uppercase {{ 'text-success fw-bold' if floor.name == data.floor else 'text-secondary'}}"
+                    href="?floor={{floor.name|urlencode}}">{{floor.name}} {%if floor.name == data.floor%}<i
+                        class="bi bi-check text-success"></i>{%endif%}</a>
+                {%endfor%}
             </div>
-        {%endif%}
-
-        
-        <div style="height: calc(100% - {{'60px' if data.floors|length > 1 else '0px' }}); overflow:auto;" class="bg-white d-block position-relative">
-            {%for table in data.tables%}
-            <a href="/table/{{table.id}}"  data-x="{{table.left}}" data-y="{{table.top}}" style="position:absolute; top:{{table.top}}px; left:{{table.left}}px; height:50px; width:100px;" class="tablex alert {{ 'alert-success' if table.inuse else 'alert-warning' }} text-decoration-none rounded-3 shadow-sm d-flex align-items-center justify-content-center fw-bold">
-                <div>{{table.name}}</div>
-            </a>
-            {%endfor%}
         </div>
-
     </div>
+    {%endif%}
+
+
+    <div style="height: calc(100% - {{'60px' if data.floors|length > 1 else '0px' }}); overflow:auto;"
+        class="bg-white d-block position-relative">
+        {%for table in data.tables%}
+        <a href="/table/{{table.id}}" data-x="{{table.left}}" data-y="{{table.top}}"
+            style="position:absolute; top:{{table.top}}px; left:{{table.left}}px; height:50px; width:100px;"
+            class="tablex alert {{ 'alert-success' if table.inuse else 'alert-warning' }} text-decoration-none rounded-3 shadow-sm d-flex align-items-center justify-content-center fw-bold">
+            <div>{{table.name}}</div>
+        </a>
+        {%endfor%}
+    </div>
+
+</div>
+{% endblock %}
+{% block js %}
+<script type="text/javascript">
+    function tableView() {
+
+        let maxx = 0;
+        let maxy = 0;
+        let tw = 100; // table with
+        let th = 50;  // table height
+        let fx = 1;
+        let fy = 1;
+        let headh = $('#floorSelect').length ? $('#floorSelect').height() : 0;
+        let ww = $(window).width();
+        let wh = $(window).height() - headh - 20;
+
+        // get max values
+        $('.tablex').each(function () {
+
+            let x = $(this).data('x');
+            if (x > maxx) maxx = x;
+
+            let y = $(this).data('y')
+            if (y > maxy) maxy = y;
+
+        });
+
+        if (maxx > ww) fx = ww / (maxx + tw);
+        if (maxy > wh) fy = wh / (maxy + th);
+        console.log(fx, fy);
+        // optimze view
+        $('.tablex').each(function () {
+            let x = ($(this).data('x') * fx);
+            let w = (tw * fx);
+            let y = ($(this).data('y') * fy);
+            let h = (th * fy);
+
+            $(this).css('left', x);
+            $(this).css('width', w);
+            $(this).css('top', y);
+            $(this).css('height', h);
+        });
+    }
+    $(document).ready(function () {
+        tableView();
+    });
+    $(window).resize(function () {
+        tableView();
+    });
+</script>
 {% endblock %}

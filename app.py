@@ -162,10 +162,11 @@ def orders():
         })
         total += amount
 
-    return make_response({
-        "orders": orders,
-        "total": total
-    })
+    return make_response(orders)
+    # return make_response({
+    #     "orders": orders,
+    #     "total": total
+    # })
 
 
 @app.route("/products", methods=['GET'])
