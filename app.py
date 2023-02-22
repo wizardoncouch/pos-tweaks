@@ -335,8 +335,9 @@ def order_accept():
         transaction = db.session.execute(text("SELECT * FROM salestran WHERE `client`='{table}' LIMIT 1".format(table=table.client))).fetchone()
         if transaction is None:
             osno = None
-            db.session.execute(text("INSERT INTO osnumber(tableno) VALUES('{table}')".format(table=table.client)))
-            [osno] = db.session.execute(text("SELECT LAST_INSERT_ID()")).fetchone()
+            inserted = db.session.execute(text("INSERT INTO osnumber(tableno) VALUES('{table}')".format(table=table.client)))
+            db.session.commit()
+            osno = inserted.lastrowid
             ccode = 'WALK-IN'
             screg = 10
             scsenior = 10
@@ -422,8 +423,9 @@ def order_update():
         clientname = t.clientname
         transaction = db.session.execute(text("SELECT * FROM salestran WHERE `client`='{table}' LIMIT 1".format(table=t.client))).fetchone()
         if transaction is None:
-            db.session.execute(text("INSERT INTO osnumber(tableno) VALUES('{table}')".format(table=t.client)))
-            [osno] = db.session.execute(text("SELECT LAST_INSERT_ID()")).fetchone()
+            inserted = db.session.execute(text("INSERT INTO osnumber(tableno) VALUES('{table}')".format(table=t.client)))
+            db.session.commit()
+            osno = inserted.lastrowid
         else:
             osno = transaction.osno
     db.session.execute(text("UPDATE salestran SET `osno`='{osno}', `grp`='{group}', `client`='{client}', `clientname`='{clientname}' WHERE `line`='{line}'".format(osno=osno, group=group, client=client, clientname=clientname, line=item.line)))
