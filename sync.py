@@ -68,7 +68,7 @@ elif action == "items":
 
                 group = db.session.execute(text("SELECT count(*) as cnt FROM `tblmenugrp` WHERE `grp`='{group}'".format(group=product['group']))).fetchone()
                 if group.cnt == 0:
-                    db.session.execute(text("INSERT INTO `tblmenugrp`(`grp`, `dlock`) VALUES('{group}',NOW())".format(product['group'])))
+                    db.session.execute(text("INSERT INTO `tblmenugrp`(`grp`, `dlock`) VALUES('{group}',NOW())".format(group=product['group'])))
 
 
                 p = db.session.execute(text("SELECT *, `class` as category FROM `item` WHERE `barcode`='{uid}'".format(uid=product['uid']))).fetchone()
