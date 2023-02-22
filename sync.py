@@ -81,7 +81,7 @@ elif action == "items":
                                                         .format(barcode=product['uid'], itemname=product['name'], shortname=product['name'], groupid=product['group'], cl=product['category'], unit=product['unit'], amt=product['price'], model=model)))
                     db.session.commit()
                     print("{name} is inserted... with id {id}".format(name=product['name'], id=inserted.lastrowid))
-                    p = db.session.execute(text("SELECT *, `class` as category FROM `item` WHERE itemid='{itemid}'".format(itemid=inserted.lastrowid)))
+                    p = db.session.execute(text("SELECT *, `class` as category FROM `item` WHERE itemid='{itemid}'".format(itemid=inserted.lastrowid))).fetchone()
                     dlock = db.session.execute(text("SELECT * FROM `itemdlock` WHERE `itemid`='{itemid}'".format(itemid=p.itemid))).fetchone()
                     if dlock:
                         db.session.execute(text("UPDATE `itemdlock` SET `dlock`='{dlock}' WHERE `itemid`='{itemid}'".format(dlock=p.dlock, itemid=p.itemid)))
