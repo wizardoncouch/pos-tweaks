@@ -79,7 +79,8 @@ elif action == "items":
                     inserted = db.session.execute(text("""INSERT INTO `item`(`barcode`,    `itemname`,     `shortname`,    `groupid`,      `part`, `class`,    `uom`,      `dlock`,    `amt`,      `taxable`, `model`  ) 
                                                         VALUES  ('{barcode}',   '{itemname}',   '{shortname}',  '{groupid}',    'MENU', '{cl}',     '{unit}',    NOW(),     '{amt}',    1,         '{model}')"""
                                                         .format(barcode=product['uid'], itemname=product['name'], shortname=product['name'], groupid=product['group'], cl=product['category'], unit=product['unit'], amt=product['price'], model=model)))
-                    print("{name} is inserted...".format(name=product['name']))
+                    db.session.commit()
+                    print("{name} is inserted... with id {id}".format(name=product['name'], id=inserted.lastrowid))
                     p = db.session.execute(text("SELECT *, `class` as category FROM `item` WHERE itemid='{itemid}'".format(itemid=inserted.lastrowid)))
                     dlock = db.session.execute(text("SELECT * FROM `itemdlock` WHERE `itemid`='{itemid}'".format(itemid=p.itemid))).fetchone()
                     if dlock:
