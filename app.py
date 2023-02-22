@@ -1,6 +1,8 @@
 import os
 from flask import Flask, render_template, request, make_response, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask_socketio import SocketIO, send, emit
+from flask_httpauth import HTTPBasicAuth
 from datetime import datetime
 import json
 from flask_sqlalchemy import SQLAlchemy
@@ -26,6 +28,8 @@ SQLALCHEMY_ECHO = False
 
 app = Flask(__name__)
 db = SQLAlchemy()
+auth = HTTPBasicAuth()
+
 app.config.from_object(__name__)
 socketio = SocketIO(app)
 
@@ -35,6 +39,12 @@ db.init_app(app)
 branch_id = os.environ.get('BRANCH_ID')
 
 printersFile = os.path.join(os.path.dirname(__file__), 'printers.json')
+
+user = 'admin'
+pw = 'x1admin99'
+users = {
+    user: generate_password_hash(pw)
+}
 
 
 dash = "---------------------------------"
@@ -60,6 +70,12 @@ def ssql(scode, arrfields):
             where += " ) "
     return where
 
+@auth.verify_password
+def verify_password(username, password):
+    if username in users:
+        return check_password_hash(users.get(username), password)
+    return False
+
 @app.route('/t')
 def t():
     t = text("""Lorem Ipsum
@@ -71,6 +87,7 @@ def t():
 
 
 
+@auth.login_required
 @app.route('/config', methods=["POST", "GET"])
 def config():
 
