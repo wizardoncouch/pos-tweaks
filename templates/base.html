@@ -10,6 +10,21 @@
   <link rel="stylesheet" href="{{ url_for('static', filename= 'css/style.css') }}">
   <title>POS Orders</title>
   <style type="text/css">
+    .box-lg{
+        position: relative;
+        float: left;
+        text-align: center;
+        margin-left: 5px;
+        margin-top: 5px;
+        width: 200px;
+        height: 200px;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 14px;
+        /* box-shadow: 0px 0px 1px 1px #999; */
+        overflow: hidden;
+        color: #130f40;
+    }
     .box{
         position: relative;
         float: left;
@@ -18,7 +33,6 @@
         margin-top: 5px;
         width: 112px;
         height: 112px;
-        background: #f9e665;
         cursor: pointer;
         font-size: 10px;
         line-height: 10px;
@@ -109,7 +123,6 @@
       $(document).on('click', '#accept-order', function () {
         let s = $(this);
         let table = $(this).data('table')
-
 
         let items = [];
 
@@ -276,73 +289,8 @@
 
     });
 
-    
-
-    function appendItem(barcode, name, qty, price, remarks = '') {
-      restoreColors();
-      $("#newOrdersTable").append('<tr data-barcode="' + barcode + '" class="orderLine active alert alert-warning border-0" style="background-color:' + markedBg + '; color:' + markedColor + '"><td style="width:50%; padding:3px;"><small class="itemName">' + name.toUpperCase() + '</small><div class="itemRemarks" style="color:red;font-size:11px">' + remarks + '</div></td><td style="width:15%; padding:3px;" class="text-end itemQty">' + qty + '</td><td style="width:35%; padding:3px;" class="text-end itemPrice">' + price + '</td></tr>');
-      $("#orderContainer").animate({ scrollTop: $('#orderContainer').prop("scrollHeight") }, 1000);
-    }
-
-    function markedLine(el) {
-      el.addClass('active');
-      el.css('background-color', markedBg);
-      el.css('color', markedColor);
-
-      activateTools();
-    }
-
-    function restoreColors() {
-      $('.orderLine').each(function () {
-        $(this).removeClass('active');
-
-        let bgColor = $(this).hasClass('printed') ? '#0bd480' : '#e5ed98';
-        let textColor = '#000';
-        $(this).css('background-color', bgColor);
-        $(this).css('color', textColor);
-      });
-    }
-
-    function activateTools() {
-      if ($('.active').hasClass('printed')) {
-        $('.addQty').removeClass('disabled');
-        $('.minusQty').removeClass('disabled');
-        $('.remarks').addClass('disabled');
-      } else {
-        $('.addQty').removeClass('disabled');
-        $('.minusQty').removeClass('disabled');
-        $('.remarks').removeClass('disabled');
-      }
-    }
-
-    function getOrders() {
-      let client = $('#tablename').data('client');
-      $.get('/orders?client=' + client).then(function (response) {
-        let orders = response.orders;
-        console.log(orders);
-
-        $('#printedOrdersTable').find('.printed')
-          .remove()
-          .end()
-
-        orders.forEach(item => {
-          $("#printedOrdersTable").append('<tr data-line="' + item.id + '" data-client="' + item.client + '" data-barcode="' + item.barcode + '" class="orderLine alert printed border-0"><td style="width:50%; padding:3px;"><small class="itemName">' + item.name + '</small><div style="color:red;font-size:11px" class="itemRemarks">' + item.remarks + '</div></td><td style="width:15%; padding:3px;" class="text-end itemQty">' + parseInt(item.qty) + '</td><td style="width:35%; padding:3px;" class="text-end itemPrice">' + parseFloat(item.amount).toFixed(2) + '</td></tr>');
-        });
-
-        restoreColors();
-      });
-    }
-
-
-    function totalPrice() {
-      let total = 0;
-      $('.orderLine').each(function () {
-        let priceEl = $(this).find('.itemPrice');
-        total += parseFloat($.trim(priceEl.text()));
-      });
-
-      $('#total').text(total.toFixed(2));
-    }
+   
+   
 
     
 

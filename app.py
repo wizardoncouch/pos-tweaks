@@ -1,12 +1,13 @@
 import os
-from flask import Flask, render_template, request, make_response, redirect, session, jsonify
-import mysql.connector
-from mysql.connector import Error
+from flask import Flask, render_template, request, make_response, jsonify
+from flask_socketio import SocketIO, send, emit
 from datetime import datetime
 import json
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from dotenv import load_dotenv
+import time
+import math
 
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
@@ -26,6 +27,8 @@ SQLALCHEMY_ECHO = False
 app = Flask(__name__)
 db = SQLAlchemy()
 app.config.from_object(__name__)
+socketio = SocketIO(app)
+
 
 db.init_app(app)
 
@@ -132,9 +135,16 @@ def floors():
 @app.route("/table/<id>")
 def tables(id):
     table = text("SELECT * FROM client WHERE clientid='{id}'".format(id=id))
+    tables = text("""SELECT t.* 
+                            FROM client as t 
+                            LEFT JOIN (SELECT DISTINCT(flr) as floor, client as fid FROM client where isconsignee=1) as f on f.floor = t.flr
+                            WHERE f.fid>'' 
+                            GROUP by t.client
+                            ORDER by t.clientname""")
     categories = text("SELECT id, class as name FROM tblmenulist where isinactive=0 and iscategory=1 order by class asc")
-    return render_template('order1.html', data={
+    return render_template('order.html', data={
         "table":db.session.execute(table).fetchone(), 
+        "tables": [{"id": t.client, "name": t.clientname} for t in db.session.execute(tables).fetchall()],
         "categories": db.session.execute(categories).fetchall()
     })
 
@@ -154,11 +164,13 @@ def orders():
             "barcode": order.barcode,
             "name": order.itemname,
             "qty": order.isqty,
-            "amount": amount,
+            "price": order.isamt,
             "remarks": order.remarks,
             "printed": order.isprint,
             "group": order.grp,
-            "senior": order.scsenior
+            "senior": order.scsenior,
+            "table": order.client,
+            "selected": 0
         })
         total += amount
 
@@ -242,13 +254,12 @@ def getRemarks():
 
     return make_response(remarks)
 
-@app.route("/accept", methods=['POST'])
-def accept():
-    form = request.get_json()
+@app.route("/order/accept", methods=['POST'])
+def order_accept():
+    table = request.form.get('table')
+    items = request.form.get('items')
 
-    table = None
-    
-    table = db.session.execute(text("SELECT * FROM `client` WHERE `clientname`='{table}'".format(table=form.get('table_name')))).fetchone()
+    table = db.session.execute(text("SELECT * FROM `client` WHERE `client`='{table}'".format(table=table))).fetchone()
     if table is None:
         return make_response(jsonify({'error': 'No table passed'}), 422)
 
@@ -259,7 +270,7 @@ def accept():
     printables = {}
     insertables = {}
     cntr = 1
-    for order_item in form.get('order_items'):
+    for order_item in json.loads(items):
         item = db.session.execute(text("SELECT *, class as category FROM item where barcode='{code}'".format(code=order_item['barcode']))).fetchone()
         if item is None:
             continue
@@ -284,16 +295,17 @@ def accept():
         order_item_qty = order_item['qty']
         order_item_remarks = order_item['remarks']
 
+        order_name = "{itemname} {group} {remarks}".format(itemname=item.itemname, group=order_item['group'], remarks="\n!!! "+order_item_remarks+" !!!" if order_item_remarks else "")
         printables[prntr].append({
             "cntr": cntr,
             "barcode": item.barcode,
-            "name": item.itemname + ("\n!!! "+order_item_remarks+" !!!" if order_item_remarks else ""),
+            "name": order_name,
             "qty": order_item_qty,
             "unit": item.uom
         })
         extobj = {
             "barcode": item.barcode,
-            "name": item.itemname + ("\n!!! "+order_item_remarks+" !!!" if order_item_remarks else ""),
+            "name": order_name,
             "qty": order_item_qty,
             "unit": item.uom
         }
@@ -314,7 +326,7 @@ def accept():
             ccode = 'WALK-IN'
             screg = 10
             scsenior = 10
-            grp = 'A'
+            grp = order_item['group'] if order_item['group'] else 'A'
             waiter = 'Administrator'
             source = 'WH00001'
         else:
@@ -322,7 +334,7 @@ def accept():
             ccode = transaction.ccode
             screg = transaction.screg
             scsenior = transaction.scsenior
-            grp = transaction.grp
+            grp = order_item['group'] if order_item['group'] else transaction.grp
             waiter = transaction.waiter
             source = transaction.source
 
@@ -378,18 +390,35 @@ def accept():
     except:
         return make_response(jsonify({'error': 'Printer error'}))
     
+@app.route("/order/update", methods=['POST'])
+def order_update():
+    id = request.form.get('id')
+    table = request.form.get('table')
+    group = request.form.get('group')
+    item = db.session.execute(text("SELECT * FROM salestran WHERE `line`='{line}'".format(line=id))).fetchone()
+    if item is None:
+        return make_response(jsonify({'error': 'Item not found'}))
+    
+    osno = item.osno
+    client = item.client
+    clientname = item.clientname
+    if table != item.client:
+        t = db.session.execute(text("SELECT * FROM `client` where `client`='{table}'".format(table=table))).fetchone()
+        client = t.client
+        clientname = t.clientname
+        transaction = db.session.execute(text("SELECT * FROM salestran WHERE `client`='{table}' LIMIT 1".format(table=t.client))).fetchone()
+        if transaction is None:
+            db.session.execute(text("INSERT INTO osnumber(tableno) VALUES('{table}')".format(table=t.client)))
+            [osno] = db.session.execute(text("SELECT LAST_INSERT_ID()")).fetchone()
+        else:
+            osno = transaction.osno
+    db.session.execute(text("UPDATE salestran SET `osno`='{osno}', `grp`='{group}', `client`='{client}', `clientname`='{clientname}' WHERE `line`='{line}'".format(osno=osno, group=group, client=client, clientname=clientname, line=item.line)))
 
-@app.route("/voidItem", methods=['POST'])
-def voidItem():
-    form = request.get_json()
+    return make_response(jsonify({'success': 'Item updated'}))
 
-    client = form.get('client')
-    line = form.get('line')
-
-    if client is None:
-        return make_response(jsonify({'error': 'No client passed'}), 422)
-    if line is None:
-        return make_response(jsonify({'error': 'No line passed'}), 422)
+@app.route("/order/void", methods=['POST'])
+def order_void():
+    line = request.form.get('id')
 
     p = open(printersFile)
     printers = dict(json.load(p))
@@ -399,7 +428,7 @@ def voidItem():
             SELECT i.model, i.printer2, i.printer3, i.printer4, i.printer5, st.itemname as itemname, st.isqty as qty, st.line, st.client, st.clientname, st.barcode 
             FROM `salestran` as st
             LEFT JOIN `item` as i ON st.barcode = i.barcode
-            WHERE st.client = '{client}' and st.line = '{line}'""".format(client=client, line=line))
+            WHERE st.line = '{line}'""".format(line=line))
     item = db.session.execute(sql).fetchone()
     
     if item is None:
@@ -446,5 +475,49 @@ def voidItem():
         return make_response(jsonify({'error': 'Printing error'}))
 
 
+@app.route("/observe", methods=['GET'])
+def observe():
+    
+    if request.method == 'GET':
+        return render_template('observe.html')
+    pass
+
+@app.route("/kitchens", methods=['GET'])
+def kitchens():
+    rows = db.session.execute(text("SELECT DISTINCT(model) as printer FROM item WHERE model > ''")).fetchall()
+
+    return make_response(jsonify([{"printer": row.printer} for row in rows]))
+
+@socketio.on('read')
+def read(printers):
+    format_printers = "('{}')".format("','".join([str(i) for i in printers]))
+    sql = text("""SELECT o.* 
+                    FROM salestran o 
+                    LEFT JOIN item i on i.barcode = o.barcode 
+                    WHERE i.model IN %s ORDER BY o.`encoded` ASC""" % format_printers)
+
+    while True:
+        tables = dict()
+        current = datetime.now()
+        for row in db.session.execute(sql):
+            if row.clientname not in tables:
+                tables[row.clientname] = []
+            
+            #created = datetime.strptime(row.encoded, '%Y-%m-%d %H:%M:%S')
+            diff = current - row.encoded
+            tables[row.clientname].append({
+                "id": row.line,
+                "barcode": row.barcode,
+                "name": row.itemname, 
+                "qty": float(row.isqty),
+                "amount": float(row.isamt),
+                "remarks": row.remarks,
+                "group": row.grp,
+                "table": row.clientname,
+                "danger": 1,
+                "duration": math.floor(diff.total_seconds()/60)
+            })
+        emit('observe', tables)
+        time.sleep(60)
 if __name__ == '__main__':
-    app.run(port=8080,host='0.0.0.0',debug=True)
+    socketio.run(app=app,port=8080,host='0.0.0.0',debug=True)

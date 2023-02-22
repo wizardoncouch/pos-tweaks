@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-center" id="observer-wrapper">
+</div>
+{% endblock %}
+{% block js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+<script type="text/javascript">
+    var socket = io();
+    function Observe(){
+        this.kitchens = []
+        this.getObserve = function(){
+            let observer = window.localStorage.getItem('observer')
+            if(!observer) this.kitchens = []
+            else this.kitchens = JSON.parse(observer)
+        }
+        this.setObserve = function (){
+            window.localStorage.setItem('observer', JSON.stringify(this.kitchens));
+            document.location.reload();
+        }
+        this.selectKitchen = function(){
+            let self = this
+            $.get('/kitchens').then(function(response){
+                let card = $('<div />').addClass('w-50 shadow-sm my-3 card border-0');
+                let cardBody = $('<div />').addClass('card-body p-5');
+                if(response.length){
+                    response.forEach((row, i) => {
+                        let id = 'btn-check-'+i;
+                        $('<div />').append(
+                            $('<input />').attr('type', 'checkbox').addClass('btn-check').attr('id', id).attr('autocomplete', 'off').change(function(){
+                                if($(this).is(':checked')){
+                                    if(!self.kitchens.includes(row.printer)){
+                                        self.kitchens.push(row.printer)
+                                    }
+                                }else{
+                                    const index = self.kitchens.indexOf(row.printer)
+                                    self.kitchens.splice(index, 1);
+                                }
+                            }),
+                            $('<label />').addClass('btn btn-outline-success w-100 mb-2').attr('for', id).html(row.printer)
+                        ).appendTo(cardBody);
+                    });
+                }
+                let cardFooter = $('<div />').addClass('card-footer text-center bg-white border-0 p-5');
+                $('<button />').attr('type', 'button').addClass('btn btn-primary').click(function(){
+                    self.setObserve();
+                }).html('Start Observing').appendTo(cardFooter);
+                $('<div />').addClass('card-header border-0 text-center text-uppercase bg-primary text-white fs-5').html('Observe Orders From').appendTo(card)
+                cardBody.appendTo(card)
+                cardFooter.appendTo(card)
+
+                $('#observer-wrapper').html(card);
+            });
+        }
+
+        this.display = function(response){
+            let wrapper = $('<div />').addClass('row');
+            console.log(response);
+            for(key in response){
+                let items = response[key]
+
+                let card = $('<div />').addClass('card m-1 border-0 shadow-sm').css({width: '200px'});
+                let cardHeader = $('<div />').addClass('card-header border-0 bg-primary text-white fs-6 fw-bold text-start text-uppercase').append('Table: '+key);
+                let cardBody = $('<div />').addClass('card-body p-1');
+
+                items.forEach((item) => {
+                    let row = $('<div />').addClass('shadow-sm my-1 p-2');
+                    $('<p />').addClass('text-start fw-bold text-uppercase mb-0').html(item.name).appendTo(row)
+                    $('<div />').addClass('small text-secondary mb-3').html(item.duration + ' minutes ago').appendTo(row);
+                    $('<div class="small text-center text-danger" />').html(item.remarks).appendTo(row);
+                    cardBody.append(row);
+                })
+
+                card.append(cardHeader).append(cardBody);
+                $('<div />').addClass('col').html(card).appendTo(wrapper);
+            }
+            $('#observer-wrapper').html(wrapper);
+
+        }
+    }
+    var observe = new Observe()
+    $(document).ready(function(){
+        observe.getObserve()
+        if(observe.kitchens.length > 0){
+            socket.on('connect', function() {
+                socket.emit('read', observe.kitchens);
+            }); 
+            socket.on('observe', function(response){
+                observe.display(response);
+            });
+        }else{
+            observe.selectKitchen()
+        }
+    });
+</script>
+{% endblock %}

@@ -1,119 +1,482 @@
 {% extends 'base.html' %}
 
 {% block content %}
-    <div class="vh-100">
-        <div style="height:60px;" class="bg-light d-flex align-items-center shadow-sm justify-content-between">
-            <div class="d-flex align-items-center">
-                <a href="/?floor={{data.table.flr|urlencode}}" class="fw-bold ms-1 me-3 btn btn-light fs-4"><i class="bi bi-arrow-left"></i></a>
-                <div class="fs-4 fw-bold text-dark text-capitalize">Order for table: {{data.table.clientname}}</div>
-            </div>
-            <div>
-                {%if data.printable%}
-                    <button type="button" data-table="{{data.table.clientname}}" id="accept-order" class="btn btn-success mx-2">Accept Order</button>
-                {%endif%}
-            </div>
+<div style="position:fixed; height:100%;width:100%; display:block;">
+    <div style="position:fixed; height:60px; width:100%;"
+        class="d-flex justify-content-between align-items-center bg-light shadow-sm">
+        <div class="d-flex align-items-center">
+            <a href="/?floor={{data.table.flr|urlencode}}" class="fw-bold ms-1 me-3 btn btn-light fs-4"><i
+                    class="bi bi-arrow-left"></i></a>
+            <div class="fs-4 fw-bold text-dark text-capitalize" data-client="{{data.table.client}}">Table: {{data.table.clientname}}</div>
         </div>
-        <div style="height: calc(100% - 60px);" class="bg-white d-block">
-            <div class="row h-100 m-0">
-                <div class="col-4 bg-light border-end border-light h-100 p-0">
-                    <div style="height:calc(100% - 60px); overflow:auto;">
-                        <table class="table">
-                            <thead>
-                                <tr class="bg-secondary">
-                                    <th scope="col" class="text-uppercase">Item</th>
-                                    <th scope="col" class="text-uppercase">Qty</th>
-                                    <th scope="col" class="text-uppercase text-end">Amt</th>
-                                    <th scope="col"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {%for item in data.orders%}
-                                    <tr class="alert {{'alert-success' if item.printed else 'alert-warning'}} border-0">
-                                        <th scope="row">{{item.name}}</th>
-                                        <td class="text-left">
-                                            {%if item.printed == 1%}
-                                                {{(item.qty|round(2)|string).rstrip('.0')}}
-                                            {%else%}
-                                                <form method="post" class="p-0 m-0" action="/transaction">
-                                                    <input type="hidden" name="table" value="{{data.table.clientname}}">
-                                                    <input type="hidden" name="barcode" value="{{item.barcode}}">
-                                                    <input name="qty" class="alert alert-warning border-0 p-0 m-0 border-bottom border-warning rounded-0" size="5" style="text-align: left;" value="{{(item.qty|round(2)|string).rstrip('.0')}}"/>
-                                                </form>
-                                            {%endif%}
-                                        </td>
-                                        <td class="text-end">{{"{:,.2f}".format(item.amount)}}</td>
-                                        <td width="25px">
-                                            {%if item.printed == 0%}
-                                                <form method="post" class="p-0 m-0 d-flex justify-content-end" action="/transaction">
-                                                    <input type="hidden" name="table" value="{{data.table.clientname}}">
-                                                    <input type="hidden" name="barcode" value="{{item.barcode}}">
-                                                    <input type="hidden" name="qty" value="0">
-                                                    <button type="submit" class="bg-danger text-white rounded-circle" style="border:0; padding:0 3.5px;"><i class="bi bi-dash"></i></button>
-                                                </form>
-                                            {%endif%}
-                                        </td>
-                                    </tr>
-                                {%endfor%}
-                            </tbody>
-                        </table>
+        <div>
+            <input name="search" class="form-control" id="search" placeholder="Type to search...">
+        </div>
+        <div>
+            <button type="button" id="accept-order"
+                class="btn btn-success mx-2">Accept Order</button>
+        </div>
+    </div>
+    <div style="position:fixed; margin-top:60px; height:calc(100% - 60px);width:30%;">
+        <div style="height:100%; position:relative;">
+            <div class="d-flex bg-dark text-white" style="position:absolute; width:100%; top:0; height:30px;">
+                <div class="text-uppercase" style="width:50%; padding:3px;">Item</div>
+                <div class="text-uppercase text-end" style="width:15%; padding:3px;">Qty</div>
+                <div class="text-uppercase text-end" style="width:35%; padding:3px;">Amount</div>
+                <!-- <div  style="width:10%;">&nbsp;</div> -->
+            </div>
+            <div style="position:absolute; top:30px; width:100%; height:calc(100% - 120px); overflow:auto;" id="orders-container">
+                <table id="orders-table" style="width:100%;">
+                    {# <tbody id="newOrdersTable"></tbody> #}
+                </table>
+            </div>
+            <div style="position:absolute; width:100%; bottom:0; height:80px;">
+                <div class="d-flex align-items-center mb-2 justify-content-between px-1 order-item-actions">
+                    <div class="btn-group flex-fill mx-1" role="group" aria-label="Quantity">
+                        <button type="button" class="btn btn-secondary fw-bold" id="qty-plus" disabled>
+                            <i class="bi bi-plus-circle-fill text-white fs-5"></i>
+                        </button>
+                        <button type="button" class="btn btn-secondary fw-bold" id="qty-minus" disabled>
+                            <i class="bi bi-dash-circle-fill text-white fs-5"></i>
+                        </button>
                     </div>
-                    <div style="height:60px;" class="bg-secondary d-flex align-items-center justify-content-between p-3">
-                        <span class="fs-4 text-uppercase">Total</span>
-                        <span class="fs-4">{{"{:,.2f}".format(data.total)}}</span>
+                    <div class="btn-group flex-fill mx-1" role="group" aria-label="Quantity">
+                        <button type="button" class="btn btn-secondary fw-bold modal-toggle" id="settings" disabled>
+                            <i class="bi bi-info-circle-fill text-white fs-5"></i>
+                        </button>
+                        {# <button type="button" class="btn btn-secondary fw-bold modal-toggle" id="settings">
+                            <i class="bi bi-sliders2 text-white fs-5"></i>
+                        </button> #}
                     </div>
                 </div>
-                <div class="col-8 bg-white h-100">
-                    <div class="row h-100">
-                        <div class="col-10 h-100">
-                            <div style="height: 50%; overflow:auto" class="border-bottom">
-                                <div class="row row-cols-6">
-                                    {%for product in data.products%}
-                                        <div class="col h-100 mt-1">
-                                            {%if product.barcode > ''%}
-                                                <form class="h-100" method="post" action="/transaction">
-                                                    <input type="hidden" name="id" value="0"/>
-                                                    <input type="hidden" name="barcode" value="{{product.barcode}}" />
-                                                    <input type="hidden" name="table" value="{{data.table.clientname}}" />
-                                                    <button type="submit" class="btn btn-light w-100 h-100 text-button-label">{{product.itemname}}</button>
-                                                </form>
-                                            {%else%}
-                                                <div class="h-100">
-                                                    <a href="?category={{product.class|urlencode}}&group={{product.itemname|urlencode}}" type="button" class="btn btn-light w-100 h-100 text-button-label">{{product.itemname}}</a>
-                                                </div>
-                                            {%endif%}
-                                        </div>
-                                    {%endfor%}
-                                </div>
-                            </div>
-                            <div style="height: 50%; overflow:auto">
-                                <div class="row row-cols-6">
-                                    {%for subProduct in data.subProducts%}
-                                        <div class="col h-100">
-                                            <form class="p-2 h-100" method="post" action="/transaction">
-                                                <input type="hidden" name="id" value="0"/>
-                                                <input type="hidden" name="barcode" value="{{subProduct.barcode}}" />
-                                                <input type="hidden" name="table" value="{{data.table.clientname}}" />
-                                                <button type="submit" class="btn btn-light w-100 h-100 text-button-label">{{subProduct.itemname}}</button>
-                                            </form>
-                                        </div>
-                                    {%endfor%}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-2 h-100 bg-light" style="overflow-y: auto;">
-                            <div class="row">
-                                {%for category in data.categories%}
-                                    <div class="col">
-                                        <div class="p-2">
-                                            <a href="?category={{category.name|urlencode}}" type="button" class="btn btn-secondary w-100 text-button-label">{{category.name}}</a>
-                                        </div>
-                                    </div>
-                                {%endfor%}
-                            </div>
-                        </div>
-                    </div>
+                <div class="d-flex px-1 justify-content-between bg-dark text-white">
+                    <strong class="text-uppercase" style="padding: 5px 5px;">Total</strong>
+                    <strong style="padding:5px 0 5px 5px;" id="orders-total"></strong>
                 </div>
             </div>
         </div>
     </div>
+    <div style="position:fixed; margin-top:60px; margin-left:30%; height:calc(100% - 60px); width:calc(100% - 30%);"
+        class="d-flex">
+        <div id="modal-holder" style="height:100%; width:calc(100% - 100px); position:relative;">
+            <div id="products-container" style="height:100%; overflow:auto; padding:5px;">
+                <div id="products" style="flex:1 1 auto; min-height:1px;">
+                </div>
+            </div>
+            <div id="sub-products-container" style="height:0%; overflow:auto; padding:5px; border-top:1px solid gray;">
+                <div id="sub-products" style="flex:1 1 auto; min-height:1px;">
+                </div>
+            </div>
+            <div id="order-details-modal" class="modal right order-item-details" role="dialog">
+                <div class="modal-dialog">
+                    <!-- Modal content-->
+                    <div class="modal-content border-0 rounded-0">
+                        <div class="modal-header border-0">
+                            <h4 class="modal-title">Details</h4>
+                            <button type="button" class="close btn btn-danger rounded-circle btn-sm"
+                                data-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div class="modal-body" id="details-wrapper">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="height:100%; width:100px; overflow:auto;" class="bg-light">
+            {%for category in data.categories%}
+                <div style="padding:5px;">
+                    <div type="button" data-category="{{category.name}}"
+                        style="text-decoration:none; width:100%; border-radius:5px; padding: 5px; text-align:center; overflow:visible; display:block;"
+                        class="text-white bg-secondary text-button-label category">{{category.name}}</div>
+                </div>
+            {%endfor%}
+        </div>
+
+    </div>
+
+    {# <div style="position:absolute;width:300px;left:30%;top:60px;border: 1px solid #aaa;" class="bg-light text-center"
+        id="remarksModal">
+        <div class="p-4 w-100" style="position:relative;">
+            <button id="closeRemarks" class="btn btn-danger text-white"
+                style="position:absolute;right:10px;top:10px">X</button>
+            <div class="fw-bold mb-3" id="remarkProduct"></div>
+            <div class="mb-4"><input name="remarks" id="remarkInput" placeholder="Add remarks"></div>
+            <div id="remarkOptions"></div>
+        </div>
+    </div> #}
+
+</div>
+
+{% endblock %}
+{% block js %}
+<script type="text/javascript">
+    var markedBg = '#4788ff';
+    var markedColor = '#fff';
+
+    function throttle(f, delay) {
+        var timer = null;
+        return function () {
+            var context = this, args = arguments;
+            clearTimeout(timer);
+            timer = window.setTimeout(function () {
+                f.apply(context, args);
+            },
+                delay || 500);
+        };
+    }
+    function Orders(){
+        this.loaded = false;
+        this.table = '{{data.table.client}}';
+        this.tables = JSON.parse('{{data.tables | tojson| safe}}');
+        this.orders = [];
+        this.sessions = [];
+        this.selected = null;
+        this.total = 0;
+        this.ismodal = false;
+        this.isMultiple = false;
+        this.actives = [];
+        this.hasChanges = false;
+        this.getSessions = function(){
+            var localOrders = window.localStorage.getItem('order_'+this.table)
+            if(!localOrders) this.sessions = []
+            else this.sessions = JSON.parse(localOrders)
+        } 
+        this.saveSessions = function(){
+            if(this.sessions.length > 0) window.localStorage.setItem('order_'+this.table, JSON.stringify(this.sessions)) 
+            else window.localStorage.removeItem('order_'+this.table)
+        }
+        this.addItem = async function(barcode, name, qty, price){
+            let create = true;
+            for(const i in this.orders){
+                this.orders[i].selected = 0
+            }
+            for(const i in this.sessions){
+                this.sessions[i].selected = 0
+                if(this.sessions[i].barcode == barcode){
+                    this.sessions[i].qty = this.sessions[i].qty + qty;
+                    this.sessions[i].sesions = parseFloat(price)
+                    this.sessions[i].selected = 1
+                    create = false
+                }
+            }
+            if(create){
+                this.sessions.push({
+                    barcode: barcode,
+                    name: name,
+                    qty: qty,
+                    remarks: '',
+                    group: 'A',
+                    price: parseFloat(price),
+                    selected: 1,
+                })
+            }
+            this.saveSessions()
+            await this.display(false)
+            $("#orders-container").animate({ scrollTop: $('#orders-container').prop("scrollHeight") }, 1000);
+        }
+        this.decrement = async function(){
+            if(this.selected){
+                if(this.selected.location == 'local'){
+                    this.sessions[this.selected.index].qty = this.sessions[this.selected.index].qty - 1;
+                    if(this.sessions[this.selected.index].qty <= 0){
+                        this.sessions.splice(this.selected.index, 1)
+                    }else{
+                        this.sessions[this.selected.index].selected = 1
+                    }
+                    await this.saveSessions()
+                    this.display(false)
+                }else if(this.selected.location == 'db'){
+                    if(confirm(`Void ${active.name}?`)){
+                        let self = this
+                        $.post('/order/void', {id: active.id}).then(async function(){
+                            alert(`1 ${active.name} cancelled`);
+                            await self.display()
+                        });
+                    }
+                }
+            }
+        }
+
+        this.increment = function(){
+            if(this.selected) this.addItem(this.selected.barcode, this.selected.name, 1, this.selected.price)
+        }
+
+        this.getOrders = async function(f=true){
+            if(f){
+                this.orders = []
+                const response = await fetch('/orders?client=' + this.table);
+                this.orders = await response.json()
+                if(!this.orders) this.orders = []
+                this.getSessions()
+            }
+        }
+        
+        this.display = async function(f=true){
+            await this.getOrders(f)
+            let tbody = $('<tbody />');
+            const all = {db: this.orders, local:this.sessions}
+            let total = 0;
+            this.selected = null
+            for(let loc in all){
+                all[loc].forEach((item, i) =>{
+                    total += parseFloat(item.qty) * parseFloat(item.price)
+                    let self = this
+                    let tr = $('<tr />')
+                        .css('cursor','pointer')
+                        .addClass('order-items alert').click(async function(){
+                            for(const x in self.sessions) self.sessions[x].selected = 0
+                            for(const x in self.orders) self.orders[x].selected = 0
+                            if(loc == 'local') self.sessions[i].selected = self.sessions[i].selected ? 0 : 1
+                            else if(loc == 'db') self.orders[i].selected = self.orders[i].selected ? 0 : 1
+                            await self.display(false)
+                            if(self.ismodal) await self.details()
+                        });
+                    if(item.selected == 1){
+                        this.selected = item;
+                        this.selected.location = loc
+                        this.selected.index = i
+                        tr.addClass('selected alert-primary')
+                    }else{
+                        if(loc == 'db') tr.addClass('alert-success');
+                        else tr.addClass('alert-warning');
+                    }
+
+                    let name = $('<td />').css({
+                        width: 'calc(50% - 30px)',
+                        padding: '3px'
+                    }).append(
+                        $('<div class="item-name small fw-bold text-uppercase" />').html(item.name),
+                        $('<div class="text-danger small item-remarks" />').append(
+                            $('<span />').addClass('badge bg-primary me-1 p-1').html(item.group),
+                            $('<span />').addClass('badge bg-danger me-1').html(item.remarks),
+                            ))
+
+                    let qty = $('<td />').css({
+                        width: '15%',
+                        padding: '3px'
+                    }).addClass('text-end item-qty small').html(parseInt(item.qty))
+                    
+                    let amount = $('<td />').css({
+                        width: '35%',
+                        padding: '3px'
+                    }).addClass('text-end item-price small fw-bold').html((parseFloat(item.price) * parseFloat(item.qty)).toFixed(2));
+
+                    tr.append(name).append(qty).append(amount).appendTo(tbody);
+
+                });
+            }
+
+            $('#orders-table').html(tbody)
+            $('#orders-total').html(this.total.toFixed(2))
+            $('#qty-plus, #qty-minus, #settings').prop('disabled', this.selected == null)
+            for(const x in this.sessions) this.sessions[x].selected = 0
+            this.saveSessions()
+
+        }
+        this.details = function(){
+            let self = this
+            let wrapper = $('#details-wrapper')
+            if(this.isMultiple){
+                for(let i in self.actives){
+                    console.log('selected', self.local[self.actives[i]]);
+                }
+            }else{
+                wrapper.html('')
+                if(this.selected.location == 'local'){
+                    let remarks = $('<div />').addClass('mb-3')
+                    $('<label />').attr('for', 'remarks').addClass('form-label').html('Remarks').appendTo(remarks)
+                    $('<input />').attr('type', 'text').addClass('form-control').attr('id', 'remarks').val(this.selected.remarks).change(function(){
+                        self.sessions[self.selected.index].remarks = $(this).val()
+                        self.hasChanges = true;
+                        self.selected.remarks = $(this).val()
+                    }).appendTo(remarks)
+                    wrapper.append(remarks)
+                }
+
+                let group = $('<div />').addClass('mb-3')
+                $('<label />').attr('for', 'group').addClass('form-label').html('Group').appendTo(group)
+                $('<input />').attr('type', 'text').addClass('form-control').attr('id', 'group').val(this.selected.group).change(function(){
+                    if(self.selected.location == 'local') self.sessions[self.selected.index].group = $(this).val()
+                    else if(self.selected.location == 'db')  self.orders[self.selected.index].group = $(this).val()
+                    self.hasChanges = true;
+                    self.selected.group = $(this).val()
+                }).appendTo(group)
+                wrapper.append(group)
+
+                if(self.selected.location == 'db'){
+                    let table = $('<div />').addClass('mb-3')
+                    $('<label />').attr('for', 'table').addClass('form-label').html('Change Table').appendTo(table)
+                    let select =$('<select />').addClass('form-select').change(function(){
+                        self.orders[self.selected.index].table = $(this).val()
+                        self.hasChanges = true;
+                        self.selected.table = $(this).val()
+                    });
+                    this.tables.forEach(t => {
+                        $('<option />').attr('value', t.id).html(t.name).attr('selected', t.id == this.selected.table).appendTo(select)
+                    })
+                    select.appendTo(table)
+                    wrapper.append(table)
+                }
+            }
+        }
+        this.saveDetails = function(){
+            if(!this.hasChanges) return false;
+
+            if(this.selected){
+                if(this.selected.location == 'local'){
+                    this.saveSessions()
+                    this.display()
+                }else if(this.selected.location == 'db'){
+                    let self = this
+                    $.post('/order/update', this.selected).then(function(response){
+                        if('success' in response) self.display()
+                        if('error' in response) alert(response.error)
+                    });
+                }
+            }
+        }
+        this.accept = function(){
+            if(this.sessions.length > 0){
+                let self = this
+                $('#accept-order').prop('disabled', true).html('Printing Orders...')
+                $.post('/order/accept', {table: this.table, items: JSON.stringify(this.sessions)}).done(async function(response){
+                    if ('error' in response) {
+                        alert(response.error)
+                    }
+                    if ('success' in response) {
+                        alert(response.success)
+                        self.sessions = []
+                        await self.saveSessions()
+                        await self.display()
+                    }
+                    $('#accept-order').prop('disabled', false).html('Accept Order')
+                })
+            }
+        }
+    }
+
+    async function products(path) {
+        const r = await fetch(path);
+        let response = await r.json()
+
+        if (response.subProducts.length > 0) {
+            $('#products-container').css({ height: '50%' });
+            $('#sub-products-container').css({ height: '50%' });
+        } else {
+            $('#products-container').css({ height: '100%' });
+            $('#sub-products-container').css({ height: '0%' });
+        }
+        let p = $('<div />').addClass('products').css({
+            flex: "1 1 auto",
+            minHeight: "1px"
+        });
+        response.products.forEach(product => {
+            let box = $('<div />').addClass('box mb-2 product');
+            console.log('p', product)
+            if(product.barcode > ''){
+                box.addClass('can-order').click(function(){
+                    o.addItem(product.barcode, product.itemname, 1, product.amt);
+                })
+            }else{
+                box.addClass('has-group').click(function(){
+                    products(`/products?category=${product.class}&group=${product.itemname}`);
+                })
+            }
+            box.attr('data-category', product.class).attr('data-group', product.itemname)
+            $('<button />').attr('type', 'button').addClass('btn btn-light w-100 h-100 text-button-label').html(product.itemname).appendTo(box);
+            box.appendTo(p);
+        });
+        $('#products-container').html(p);
+
+        let sp = $('<div />').addClass('sub-products').css({
+            flex: "1 1 auto",
+            minHeight: "1px"
+        });
+        response.subProducts.forEach(subProduct => {
+            let box = $('<div />').addClass('box mb-2 sub-product can-order').click(function(){
+                o.addItem(subProduct.barcode, subProduct.itemname, 1, subProduct.amt);
+            });
+            $('<button />').attr('type', 'button').addClass('btn btn-light w-100 h-100 text-button-label').html(subProduct.itemname).appendTo(box);
+            box.appendTo(sp);
+        });
+        $('#sub-products-container').html(sp)
+    }
+
+    var o = new Orders()
+    $(document).ready(function () {
+        $("body").on("click", ".modal-toggle", function () {
+            $("#order-details-modal").modal("show");
+            $("#modal-holder").addClass("after_modal_appended");
+            $('.modal-backdrop').appendTo('#modal-holder');
+            $('body').removeClass("modal-open")
+            $('body').css("padding-right", "");
+            o.details()
+            o.ismodal = true
+        });
+        $('.modal').on('click', '.close', function () {
+            $("#order-details-modal").modal("hide");
+            o.isMultiple = false;
+            o.ismodal = false;
+        });
+
+        o.display();
+
+    });
+    $(document).on('click', '.category', function () {
+        products('/products?category=' + $(this).data('category'));
+    });
+
+    $(document).on('click', '.group', function () {
+        products('/products?category=' + $(this).data('category') + '&group=' + $(this).data('group'));
+    });
+
+    /* setup before functions */
+    var typingTimer;                /* timer identifier */
+    var doneTypingInterval = 800;  /* time in ms, 5 second for example */
+    var $input = $(document).find('#search');
+
+    $(document).on('keyup', '#search', function (e) {
+        if (e.keyCode == 13){
+            doneTyping()
+            $(this).blur();
+        }else{
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(doneTyping, doneTypingInterval);
+        }
+    });
+
+    $(document).on('keydown', '#search', function () {
+        clearTimeout(typingTimer);
+    });
+    
+    $(document).on('click', '#accept-order', function(){ o.accept()})
+    $(document).on('focusout', '#search', function(){ $(this).blur()})
+    $(document).on('click', '#qty-minus', function(){ o.decrement() })
+    $(document).on('click', '#qty-plus', function(){ o.increment() })
+    $(document).find('#order-details-modal').on('hidden.bs.modal', function () {
+        o.saveDetails();
+        o.isMultiple = false;
+        o.ismodal = false;
+    })
+
+    function doneTyping () {
+        let code = $('#search').val();
+        if (code.length > 0) {
+            products('/products?search=' + code);
+        }
+    }
+    $(document).click(function(event){
+        let target = $(event.target);
+        if(
+            !target.parents().hasClass('order-items') 
+            && !target.parents().hasClass('order-item-details') 
+            && !target.parents().hasClass('order-item-actions')
+            && !target.parents().hasClass('can-order')
+            ){
+                $("#order-details-modal").modal("hide");
+        }
+    });
+
+</script>
+
 {% endblock %}
