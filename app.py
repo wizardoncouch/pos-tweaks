@@ -73,6 +73,10 @@ def verify_password(username, password):
     if username in users and check_password_hash(users.get(username), password):
         return username
 
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db.session.close()
+
 @app.route('/t')
 def t():
     t = text("""Lorem Ipsum
@@ -113,8 +117,6 @@ def config():
         del printers['default']
 
 
-    db.session.commit()
-
     return render_template('config.html', data = {"printers":printers, "options": options, "default": default})
 
 
@@ -145,8 +147,6 @@ def floors():
     } for table in db.session.execute(sql)] 
 
     data['floor'] = floor
-
-    db.session.commit()
 
     return render_template('tables.html', data = data)
 
