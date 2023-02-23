@@ -71,11 +71,26 @@ def ssql(scode, arrfields):
             where += " ) "
     return where
 
+
 @auth.verify_password
 def verify_password(username, password):
     if username in users and check_password_hash(users.get(username), password):
         return username
 
+@app.before_request 
+def before_request_callback(): 
+    ordered = db.session.execute(text("SHOW COLUMNS FROM `salestran` LIKE 'ordered'"))
+    if ordered.rowcount == 0:
+        print('Add ordered column...')
+        db.session.execute(text("ALTER TABLE `salestran` ADD `ordered` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"))
+    served = db.session.execute(text("SHOW COLUMNS FROM `salestran` LIKE 'served'"))
+    if served.rowcount == 0:
+        print('Add served column...')
+        db.session.execute(text("ALTER TABLE `salestran` ADD `served` DATETIME NULL"))
+    
+    db.session.commit()
+
+    
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     db.session.close()
@@ -175,7 +190,7 @@ def orders():
     if args.get('client') is None:
         return make_response({"message": "no client passed"})
 
-    sql = text("SELECT * FROM salestran where client='{client}' ORDER by encoded ASC".format(client=args.get('client')))
+    sql = text("SELECT * FROM salestran where client='{client}' ORDER by ordered ASC".format(client=args.get('client')))
     total = 0
     orders = []
     for order in db.session.execute(sql):
@@ -505,15 +520,13 @@ def order_serve():
     if item is None:
         return make_response(jsonify({'error': 'Item not found'}))
     
-    # item = db.session.execute(text("UPDATE salestran SET `destination`='{d}' WHERE `line`='{line}'".format(d=datetime.utcnow(), line=item.line)))
-    # db.session.commit()
-    socketio.emit('refresh', item.client)
+    item = db.session.execute(text("UPDATE salestran SET `served`='{d}' WHERE `line`='{line}'".format(d=datetime.now(), line=item.line)))
+    db.session.commit()
 
     return make_response(jsonify({'success': 'Item served'}))
 
 @app.route("/observe", methods=['GET'])
 def observe():
-    
     if request.method == 'GET':
         return render_template('observe.html')
     pass
@@ -525,30 +538,34 @@ def kitchens():
     return make_response(jsonify([{"printer": row.printer} for row in rows]))
 
 @socketio.on('refresh')
-def refresh(table):
-    emit('refreshed', 'asdfasdf')
-    #t = db.session.execute(text("SELECT * FROM `client` where `client`='{table}'".format(table=table))).fetchone()
-    #if t:
-    #    sql = text("SELECT * FROM salestran WHERE `client`='%s' ORDER BY `encoded` ASC" % t.client)
-    #    current = datetime.now()
-    #    items = [{
-    #                "id": row.line,
-    #                "barcode": row.barcode,
-    #                "name": row.itemname, 
-    #                "qty": float(row.isqty),
-    #                "amount": float(row.isamt),
-    #                "remarks": row.remarks,
-    #                "group": row.grp,
-    #                "table": row.clientname,
-    #                "client": row.client,
-    #                "danger": 1,
-    #                "duration": math.floor((current - row.encoded).total_seconds()/60),
-    #                "served": math.floor((current - datetime.strptime(row.destination, '%Y-%m-%d %H:%M:%S')).total_seconds()/60) if row.destination > '' else None
-    #            } for row in db.session.execute(sql)]
-    #    db.session.close()
-    #    response = dict()
-    #    response[t.client] = {"name": t.clientname, "items": items}
-    #    emit('refreshed', response)
+def refresh(table, printers):
+    t = db.session.execute(text("SELECT * FROM `client` where `client`='{table}'".format(table=table))).fetchone()
+    if t:
+        format_printers = "('{}')".format("','".join([str(i) for i in printers]))
+        sql = text("""SELECT o.* 
+                    FROM salestran o 
+                    LEFT JOIN item i on i.barcode = o.barcode 
+                    WHERE i.model IN {printers} AND `client`='{client}' ORDER BY o.`ordered` ASC""".format(printers=format_printers, client=t.client))
+        current = datetime.now()
+        items = [{
+                    "id": row.line,
+                    "barcode": row.barcode,
+                    "name": row.itemname, 
+                    "qty": float(row.isqty),
+                    "amount": float(row.isamt),
+                    "remarks": row.remarks,
+                    "group": row.grp,
+                    "table": row.clientname,
+                    "client": row.client,
+                    "danger": 1,
+                    "time": row.ordered.strftime("%H:%M"),
+                    "duration": math.floor((current - row.ordered).total_seconds()/60),
+                    "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
+                } for row in db.session.execute(sql)]
+        db.session.close()
+        response = dict()
+        response[t.client] = {"name": t.clientname, "items": items}
+        emit('refreshed', response, broadcast=True)
 
 @socketio.on('read')
 def read(printers):
@@ -556,7 +573,7 @@ def read(printers):
     sql = text("""SELECT o.* 
                     FROM salestran o 
                     LEFT JOIN item i on i.barcode = o.barcode 
-                    WHERE i.model IN %s ORDER BY o.`encoded` ASC""" % format_printers)
+                    WHERE i.model IN %s ORDER BY o.`ordered` ASC""" % format_printers)
 
     while True:
         tables = dict()
@@ -578,8 +595,9 @@ def read(printers):
                 "table": row.clientname,
                 "client": row.client,
                 "danger": 1,
-                "duration": math.floor((current - row.encoded).total_seconds()/60),
-                "served": math.floor((current - datetime.strptime(row.destination, '%Y-%m-%d %H:%M:%S')).total_seconds()/60) if row.destination > '' else None
+                "time": row.ordered.strftime("%H:%M"),
+                "duration": math.floor((current - row.ordered).total_seconds()/60),
+                "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
             }
             tables[row.client]['items'].append(obj)
         db.session.close()

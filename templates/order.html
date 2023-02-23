@@ -241,15 +241,24 @@
                         else tr.addClass('alert-warning');
                     }
 
+                    let info = false;
+                    if(item.group != 'A') info = true;
+                    if(item.remarks > '') info = true;
                     let name = $('<td />').css({
                         width: 'calc(50% - 30px)',
                         padding: '3px'
                     }).append(
                         $('<div class="item-name small fw-bold text-uppercase" />').html(item.name),
-                        $('<div class="text-danger small item-remarks" />').append(
-                            $('<span />').addClass('badge bg-primary me-1 p-1').html(item.group),
-                            $('<span />').addClass('badge bg-danger me-1').html(item.remarks),
-                            ))
+
+                        (
+                            info ? 
+                            $('<div class="text-danger small item-remarks" />').append(
+                                (item.group != 'A' ? $('<span />').addClass('badge bg-primary me-1 p-1').html(item.group):''),
+                                (item.remarks > '' ? $('<span />').addClass('badge bg-danger me-1').html(item.remarks):''),
+                                ): ''
+
+                        )
+                    );
 
                     let qty = $('<td />').css({
                         width: '15%',
