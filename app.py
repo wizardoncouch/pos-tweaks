@@ -10,7 +10,10 @@ from sqlalchemy import text
 from dotenv import load_dotenv
 import time
 import math
+import logging
 
+
+logging.basicConfig(filename='pos.log', level=logging.DEBUG, format=f'%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
