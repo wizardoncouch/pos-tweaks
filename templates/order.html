@@ -186,7 +186,7 @@
                     await this.saveSessions()
                     this.display(false)
                 }else if(this.selected.location == 'db'){
-                    if(confirm(`Void ${active.name}?`)){
+                    if(confirm(`Void ${this.selected.name}?`)){
                         let self = this
                         $.post('/order/void', {id: this.selected.id}).then(async function(){
                             alert(`1 ${self.selected.name} cancelled`);
