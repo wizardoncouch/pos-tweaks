@@ -68,6 +68,7 @@
             if(!object.items.length) return false;
 
             let duration = null;
+            let cntr = 0;
             let groupings = {};
             object.items.forEach((item) => {
                 let row = $('<div />').attr('id', 'id-'+item.id).css('margin', '1px');
@@ -101,23 +102,27 @@
                 row.append(pending);
                 row.append(served);
                 if(duration != item.duration){
+                    cntr++;
                     duration = item.duration;
-                    groupings[duration] = []
+                    groupings[cntr] = {
+                        duration: duration,
+                        rows: []
+                    }
                 }
-                groupings[duration].push(row);
+                groupings[cntr].rows.push(row);
             });
-            for (const duration in groupings) {
-                let rows = groupings[duration];
+            for (const cntr in groupings) {
+                let g = groupings[cntr]
                 let color = '#27ae60';
-                if(duration > 20) color = '#e67e22';
-                if(duration > 30) color = '#c0392b';
+                if(g.duration > 20) color = '#e67e22';
+                if(g.duration > 30) color = '#c0392b';
                 let gwrapper = $('<div />').addClass('rounded-1 mx-1 my-1').css({background: color+'44'}).css({padding: '1px'})
                 gwrapper.append(
                     $('<p />').addClass('fw-bold mb-0 text-end px-2').css({fontSize:'12px', 'color': color}).html(
-                        $('<span />').html(duration > 0 ? duration+'m':'now')
+                        $('<span />').html(g.duration > 0 ? g.duration+'m':'now')
                     )
                 );
-                rows.forEach(row => {
+                g.rows.forEach(row => {
                     gwrapper.append(row);
                 })
                 $('#table-'+key).find('.card-body').append(gwrapper);
