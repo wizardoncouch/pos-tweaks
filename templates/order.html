@@ -188,8 +188,8 @@
                 }else if(this.selected.location == 'db'){
                     if(confirm(`Void ${active.name}?`)){
                         let self = this
-                        $.post('/order/void', {id: active.id}).then(async function(){
-                            alert(`1 ${active.name} cancelled`);
+                        $.post('/order/void', {id: this.selected.id}).then(async function(){
+                            alert(`1 ${self.selected.name} cancelled`);
                             await self.display()
                         });
                     }
