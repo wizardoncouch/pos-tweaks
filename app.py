@@ -542,6 +542,7 @@ def read(printers):
                 "duration": math.floor(diff.total_seconds()/60)
             })
         emit('observe', tables)
+        db.session.close()
         time.sleep(60)
 if __name__ == '__main__':
     socketio.run(app=app,port=8080,host='0.0.0.0',debug=True)
