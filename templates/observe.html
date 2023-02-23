@@ -113,7 +113,7 @@
                 if(duration > 30) color = '#c0392b';
                 let gwrapper = $('<div />').addClass('rounded-1 mx-1 my-1').css({background: color+'44'}).css({padding: '1px'})
                 gwrapper.append(
-                    $('<p />').addClass('fw-bold mb-0 mt-2 text-end px-2').css({fontSize:'12px', 'color': color}).html(
+                    $('<p />').addClass('fw-bold mb-0 text-end px-2').css({fontSize:'12px', 'color': color}).html(
                         $('<span />').html(duration > 0 ? duration+'m':'now')
                     )
                 );
