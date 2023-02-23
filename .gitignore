@@ -1,7 +1,6 @@
 .DS_Store
-scheduled.log
 printers.json
-orders.json
+error.log
 /__pycache__
 /venv
 /flask_session

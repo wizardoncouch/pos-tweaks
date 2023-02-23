@@ -13,7 +13,7 @@ import math
 import logging
 
 
-logging.basicConfig(filename=os.path.join(os.path.dirname(__file__), 'pos.log'), level=logging.DEBUG, format=f'%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
+logging.basicConfig(filename=os.path.join(os.path.dirname(__file__), 'error.log'), level=logging.ERROR, format=f'%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
