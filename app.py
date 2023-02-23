@@ -482,9 +482,7 @@ def order_void():
         except Exception as e:
             print(str(e))
         finally:
-            delete = text("DELETE FROM `salestran` WHERE `client`='{client}' AND `line`='{line}'".format(client=client, line=line))
-            print(delete)
-            db.session.execute(delete)
+            db.session.execute(text("DELETE FROM `salestran` WHERE `line`='{line}'".format(line=line)))
 
         return make_response(jsonify({'success': 'Item Cancelled'}))
     except:
