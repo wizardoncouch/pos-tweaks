@@ -498,6 +498,18 @@ def order_void():
     except:
         return make_response(jsonify({'error': 'Printing error'}))
 
+@app.route("/order/serve", methods=['POST'])
+def order_serve():
+    id = request.form.get('id')
+    item = db.session.execute(text("SELECT * FROM salestran WHERE `line`='{line}'".format(line=id))).fetchone()
+    if item is None:
+        return make_response(jsonify({'error': 'Item not found'}))
+    
+    # item = db.session.execute(text("UPDATE salestran SET `destination`='{d}' WHERE `line`='{line}'".format(d=datetime.utcnow(), line=item.line)))
+    # db.session.commit()
+    socketio.emit('refresh', item.client)
+
+    return make_response(jsonify({'success': 'Item served'}))
 
 @app.route("/observe", methods=['GET'])
 def observe():
@@ -512,6 +524,32 @@ def kitchens():
 
     return make_response(jsonify([{"printer": row.printer} for row in rows]))
 
+@socketio.on('refresh')
+def refresh(table):
+    emit('refreshed', 'asdfasdf')
+    #t = db.session.execute(text("SELECT * FROM `client` where `client`='{table}'".format(table=table))).fetchone()
+    #if t:
+    #    sql = text("SELECT * FROM salestran WHERE `client`='%s' ORDER BY `encoded` ASC" % t.client)
+    #    current = datetime.now()
+    #    items = [{
+    #                "id": row.line,
+    #                "barcode": row.barcode,
+    #                "name": row.itemname, 
+    #                "qty": float(row.isqty),
+    #                "amount": float(row.isamt),
+    #                "remarks": row.remarks,
+    #                "group": row.grp,
+    #                "table": row.clientname,
+    #                "client": row.client,
+    #                "danger": 1,
+    #                "duration": math.floor((current - row.encoded).total_seconds()/60),
+    #                "served": math.floor((current - datetime.strptime(row.destination, '%Y-%m-%d %H:%M:%S')).total_seconds()/60) if row.destination > '' else None
+    #            } for row in db.session.execute(sql)]
+    #    db.session.close()
+    #    response = dict()
+    #    response[t.client] = {"name": t.clientname, "items": items}
+    #    emit('refreshed', response)
+
 @socketio.on('read')
 def read(printers):
     format_printers = "('{}')".format("','".join([str(i) for i in printers]))
@@ -524,12 +562,12 @@ def read(printers):
         tables = dict()
         current = datetime.now()
         for row in db.session.execute(sql):
-            if row.clientname not in tables:
-                tables[row.clientname] = []
-            
-            #created = datetime.strptime(row.encoded, '%Y-%m-%d %H:%M:%S')
-            diff = current - row.encoded
-            tables[row.clientname].append({
+            if row.client not in tables:
+                tables[row.client] = {
+                    'name': row.clientname,
+                    'items': []
+                }
+            obj = {
                 "id": row.line,
                 "barcode": row.barcode,
                 "name": row.itemname, 
@@ -538,11 +576,14 @@ def read(printers):
                 "remarks": row.remarks,
                 "group": row.grp,
                 "table": row.clientname,
+                "client": row.client,
                 "danger": 1,
-                "duration": math.floor(diff.total_seconds()/60)
-            })
-        emit('observe', tables)
+                "duration": math.floor((current - row.encoded).total_seconds()/60),
+                "served": math.floor((current - datetime.strptime(row.destination, '%Y-%m-%d %H:%M:%S')).total_seconds()/60) if row.destination > '' else None
+            }
+            tables[row.client]['items'].append(obj)
         db.session.close()
+        emit('observe', tables)
         time.sleep(60)
 if __name__ == '__main__':
     socketio.run(app=app,port=8080,host='0.0.0.0',debug=True)

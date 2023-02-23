@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="d-flex justify-content-center" id="observer-wrapper">
+<div id="observer-wrapper">
 </div>
 {% endblock %}
 {% block js %}
@@ -54,29 +54,61 @@
             });
         }
 
+        this.table = function(key, object){
+
+            if(!$('#table-'+key).length){
+                card = $('<div />').addClass('card m-1 border-0 shadow-sm').css('width', '200px').attr('id', 'table-'+key);
+                $('<div />').addClass('card-header border-0 bg-primary text-white fs-6 fw-bold text-start text-uppercase').append('Table: '+object.name).appendTo(card);
+                $('<div />').addClass('card-body p-0').appendTo(card);
+                $('#tables-wrapper').append(card)
+            }
+            $('#table-'+key).find('.card-body').html('');
+            if(!object.items.length) return false;
+
+            object.items.forEach((item) => {
+                let row = $('<div />').attr('id', 'id-'+item.id);
+                let border = 'border-secondary border-opacity-50';
+                if(item.duration > 20) border = 'border-danger border-2 border-opacity-25';
+                if(item.duration > 30) border = 'border-danger border-2 border-opacity-75';
+                let pending = $('<a />').attr('type', 'button').addClass('text-decoration-none shadow-sm rounded m-1 p-2 d-block border '+border);
+                $('<div />').addClass('fw-bold text-uppercase text-dark').css('font-size', '14px').html(item.name).appendTo(pending);
+                $('<div />').addClass('small text-secondary').css('font-size', '12px').html('- Group '+item.group).appendTo(pending);
+                $('<div />').addClass('small text-secondary').css('font-size', '12px').html('- '+item.duration + ' minutes ago').appendTo(pending);
+                if(item.remarks > ''){
+                    $('<div class="small text-danger" />').html('- '+item.remarks).appendTo(pending);
+                }
+
+                let served = $('<div />').addClass('rounded shadow-sm m-1 p-1 served d-block').css('background','#e8e8e8');
+                $('<div />').addClass('fw-bold text-uppercase').css('font-size', '13px').html('<s>'+item.name+'</s>').appendTo(served)
+                $('<div />').addClass('small text-secondary').css('font-size', '12px').html('- served '+item.duration + ' minutes ago').appendTo(served);
+                if(item.remarks > ''){
+                    $('<div class="small text-danger" />').css('font-size', '12px').html('- '+item.remarks).appendTo(served);
+                }
+                if(item.served > 0){
+                    served.removeClass('d-none').addClass('d-block');
+                    pending.removeClass('d-block').addClass('d-none');
+                }else{
+                    served.removeClass('d-block').addClass('d-none');
+                    pending.removeClass('d-none').addClass('d-block');
+                }
+                pending.click(function(){
+                    if(confirm(`Serve ${item.name} for table ${item.table}?`)){
+                        $.post('/order/serve', {id:item.id})
+                    }
+                });
+
+                row.append(pending);
+                row.append(served);
+                $('#table-'+key).find('.card-body').append(row);
+            });
+        }
+
         this.display = function(response){
-            let wrapper = $('<div />').addClass('row');
-            console.log(response);
+            $('#observer-wrapper').html($('<div />').addClass('d-flex justify-content-start').attr('id', 'tables-wrapper'));
             for(key in response){
                 let items = response[key]
-
-                let card = $('<div />').addClass('card m-1 border-0 shadow-sm').css({width: '200px'});
-                let cardHeader = $('<div />').addClass('card-header border-0 bg-primary text-white fs-6 fw-bold text-start text-uppercase').append('Table: '+key);
-                let cardBody = $('<div />').addClass('card-body p-1');
-
-                items.forEach((item) => {
-                    let row = $('<div />').addClass('shadow-sm my-1 p-2');
-                    $('<p />').addClass('text-start fw-bold text-uppercase mb-0').html(item.name).appendTo(row)
-                    $('<div />').addClass('small text-secondary mb-3').html(item.duration + ' minutes ago').appendTo(row);
-                    $('<div class="small text-center text-danger" />').html(item.remarks).appendTo(row);
-                    cardBody.append(row);
-                })
-
-                card.append(cardHeader).append(cardBody);
-                $('<div />').addClass('col').html(card).appendTo(wrapper);
+                this.table(key, items)
             }
-            $('#observer-wrapper').html(wrapper);
-
         }
     }
     var observe = new Observe()
@@ -88,6 +120,10 @@
             }); 
             socket.on('observe', function(response){
                 observe.display(response);
+            });
+            socket.on('refreshed', function(response){
+                console.log('refreshed', response)
+                //observe.display(response);
             });
         }else{
             observe.selectKitchen()
