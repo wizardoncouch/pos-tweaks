@@ -82,7 +82,7 @@ def before_request_callback():
     ordered = db.session.execute(text("SHOW COLUMNS FROM `salestran` LIKE 'ordered'"))
     if ordered.rowcount == 0:
         print('Add ordered column...')
-        db.session.execute(text("ALTER TABLE `salestran` ADD `ordered` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"))
+        db.session.execute(text("ALTER TABLE `salestran` ADD `ordered` DATETIME NULL"))
     served = db.session.execute(text("SHOW COLUMNS FROM `salestran` LIKE 'served'"))
     if served.rowcount == 0:
         print('Add served column...')
@@ -419,11 +419,12 @@ def order_accept():
                                                     VALUES      ('{client}',    '{clientname}', '{barcode}',    '{itemname}',   '{amount}', '{qty}',    '{unit}',   '{group}',  '{waiter}',     '{osno}',   '{screg}',  '{scsenior}',   '{ccode}',  '{source}', '{remarks}',    1,         CURRENT_DATE())"""
                                                     .format(client=i['client'],clientname=i['clientname'],barcode=i['barcode'],itemname=i['itemname'],amount=i['amount'],qty=i['qty'],unit=i['unit'],group=i['group'],waiter=i['waiter'],osno=i['osno'],screg=i['screg'],scsenior=i['scsenior'],ccode=i['ccode'],source=i['source'],remarks=i['remarks']))
                             db.session.execute(sql)
-                            db.session.commit()
                 p.text("\n{dash}\n\n\n".format(dash=dash))
                 p.cut() 
             else:
                 return make_response(jsonify({'error': 'No Printer Configuration'}))
+        db.session.execute(text("UPDATE `salestran` SET `ordered` = `encoded` WHERE `ordered` IS NULL"))
+        db.session.commit()
         return make_response(jsonify({'success': 'Orders Printed'}))
     except:
         return make_response(jsonify({'error': 'Printer error'}))
@@ -570,6 +571,8 @@ def refresh(table, printers):
 @socketio.on('read')
 def read(printers):
     format_printers = "('{}')".format("','".join([str(i) for i in printers]))
+    db.session.execute(text("UPDATE `salestran` SET `ordered` = `encoded` WHERE `ordered` IS NULL"))
+    db.session.commit()
     sql = text("""SELECT o.* 
                     FROM salestran o 
                     LEFT JOIN item i on i.barcode = o.barcode 
