@@ -113,6 +113,8 @@ def config():
         del printers['default']
 
 
+    db.session.commit()
+
     return render_template('config.html', data = {"printers":printers, "options": options, "default": default})
 
 
@@ -143,6 +145,8 @@ def floors():
     } for table in db.session.execute(sql)] 
 
     data['floor'] = floor
+
+    db.session.commit()
 
     return render_template('tables.html', data = data)
 
