@@ -78,7 +78,7 @@ def verify_password(username, password):
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):
-    db.session.commit()
+    db.session.close()
 
 @app.route('/t')
 def t():
