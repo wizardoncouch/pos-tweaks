@@ -129,12 +129,13 @@
             }
         }
 
-        this.display = function(response){
-            $('#observer-wrapper').html($('<div />').attr('data-masonry', '{"percentPosition": true}').attr('id', 'tables-wrapper'));
+        this.display = async function(response){
+            $('#observer-wrapper').html($('<div />').addClass('grid').attr('id', 'tables-wrapper'));
             for(key in response){
                 let items = response[key]
-                this.table(key, items)
+                await this.table(key, items)
             }
+            $('.grid').masonry({percentPosition: true})
         }
     }
     var observe = new Observe()
