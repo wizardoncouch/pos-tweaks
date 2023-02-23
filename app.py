@@ -397,6 +397,7 @@ def order_accept():
                                                     VALUES      ('{client}',    '{clientname}', '{barcode}',    '{itemname}',   '{amount}', '{qty}',    '{unit}',   '{group}',  '{waiter}',     '{osno}',   '{screg}',  '{scsenior}',   '{ccode}',  '{source}', '{remarks}',    1,         CURRENT_DATE())"""
                                                     .format(client=i['client'],clientname=i['clientname'],barcode=i['barcode'],itemname=i['itemname'],amount=i['amount'],qty=i['qty'],unit=i['unit'],group=i['group'],waiter=i['waiter'],osno=i['osno'],screg=i['screg'],scsenior=i['scsenior'],ccode=i['ccode'],source=i['source'],remarks=i['remarks']))
                             db.session.execute(sql)
+                            db.session.commit()
                 p.text("\n{dash}\n\n\n".format(dash=dash))
                 p.cut() 
             else:
@@ -429,6 +430,7 @@ def order_update():
         else:
             osno = transaction.osno
     db.session.execute(text("UPDATE salestran SET `osno`='{osno}', `grp`='{group}', `client`='{client}', `clientname`='{clientname}' WHERE `line`='{line}'".format(osno=osno, group=group, client=client, clientname=clientname, line=item.line)))
+    db.session.commit()
 
     return make_response(jsonify({'success': 'Item updated'}))
 
@@ -483,6 +485,7 @@ def order_void():
             print(str(e))
         finally:
             db.session.execute(text("DELETE FROM `salestran` WHERE `line`='{line}'".format(line=line)))
+            db.session.commit()
 
         return make_response(jsonify({'success': 'Item Cancelled'}))
     except:
