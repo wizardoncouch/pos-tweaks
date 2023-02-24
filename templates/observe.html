@@ -285,8 +285,6 @@
             socket.on('refreshed', async function(response){
                 await observe.todos(response.todos);
                 await observe.table(response.table);
-                $('.grid').masonry('destroy');
-                $('.grid').removeData('masonry');
                 $('.grid').masonry()
             });
         }
