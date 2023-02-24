@@ -195,13 +195,13 @@
                 $('#table-'+object.client).find('.card-body').append(gwrapper);
             }
             if(completed){
+                $('#table-dropdown-'+object.client).html(latest+'m').removeClass('d-none');
                 if(this.dropdowns.includes(object.client)){
                     $('#table-'+object.client).find('.card-body').removeClass('d-none');
                     $('#table-'+object.client).find('.card-header').removeClass('rounded');
                 }else{
                     $('#table-'+object.client).find('.card-body').addClass('d-none');
                     $('#table-'+object.client).find('.card-header').addClass('rounded');
-                    $('#table-dropdown-'+object.client).html(latest+'m').removeClass('d-none');
                 }
             }
         }
