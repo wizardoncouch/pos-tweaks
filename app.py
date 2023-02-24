@@ -519,17 +519,20 @@ def order_void():
     except:
         return make_response(jsonify({'error': 'Printing error'}))
 
-@app.route("/order/serve", methods=['POST'])
-def order_serve():
+@app.route("/order/serve/<string:direction>", methods=['POST'])
+def order_serve(direction = 'out'):
     id = request.form.get('id')
     item = db.session.execute(text("SELECT * FROM salestran WHERE `line`='{line}'".format(line=id))).fetchone()
     if item is None:
         return make_response(jsonify({'error': 'Item not found'}))
     
-    db.session.execute(text("UPDATE salestran SET `served`='{d}' WHERE `line`='{line}'".format(d=datetime.now(), line=item.line)))
+    if direction == 'out':
+        db.session.execute(text("UPDATE salestran SET `served`='{d}' WHERE `line`='{line}'".format(d=datetime.now(), line=item.line)))
+    else:
+        db.session.execute(text("UPDATE salestran SET `served`=NULL WHERE `line`='{line}'".format(line=item.line)))
+
     db.session.commit()
     socketio.emit('updated', item.client, broadcast=True)
-
     return make_response(jsonify({'success': 'Item served'}))
 
 @app.route("/observe", methods=['GET'])
@@ -544,23 +547,39 @@ def kitchens():
 
     return make_response(jsonify([{"printer": row.printer} for row in rows]))
 
-@socketio.on('todos')
-def refresh(printers):
-    format_printers = "('{}')".format("','".join([str(i) for i in printers]))
-    sql = text("""SELECT o.*, i.model 
-                    FROM salestran o 
-                    LEFT JOIN item i on i.barcode = o.barcode 
-                    WHERE i.model IN %s AND o.served IS NULL ORDER BY o.`ordered` ASC""" % format_printers)
-
 @socketio.on('refresh')
 def refresh(table, printers):
+    format_printers = "('{}')".format("','".join([str(i) for i in printers]))
+
+    response = {
+        "todos": None,
+        "tables": None
+    }
+    sql = text("""SELECT o.*, i.model, i.class as cl 
+                    FROM salestran o 
+                    LEFT JOIN item i on i.barcode = o.barcode 
+                    WHERE i.barcode > 0 AND i.model IN %s AND o.served IS NULL ORDER BY o.`ordered` ASC""" % format_printers)
+
+    todos = dict()
+    for row in db.session.execute(sql):
+        if row.cl not in todos:
+            todos[row.cl] = dict()
+        if row.barcode not in todos[row.cl]:
+            todos[row.cl][row.barcode] = {
+                'name': row.itemname,
+                'printer': row.model,
+                'count': 0
+            }
+        todos[row.cl][row.barcode]['count'] += float(row.isqty)
+    response["todos"] = todos
+    
     t = db.session.execute(text("SELECT * FROM `client` where `client`='{table}'".format(table=table))).fetchone()
     if t:
         format_printers = "('{}')".format("','".join([str(i) for i in printers]))
         sql = text("""SELECT o.*, i.model 
                     FROM salestran o 
                     LEFT JOIN item i on i.barcode = o.barcode 
-                    WHERE i.model IN {printers} AND `client`='{client}' ORDER BY o.`ordered` ASC""".format(printers=format_printers, client=t.client))
+                    WHERE i.barcode > 0 AND i.model IN {printers} AND `client`='{client}' ORDER BY o.`ordered` ASC""".format(printers=format_printers, client=t.client))
         current = datetime.now()
         items = [{
                     "id": row.line,
@@ -577,7 +596,9 @@ def refresh(table, printers):
                     "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
                 } for row in db.session.execute(sql)]
         db.session.close()
-        emit('refreshed', {"client":t.client, "name": t.clientname, "items": items})
+        response["table"] = {"client":t.client, "name": t.clientname, "items": items}
+
+    emit('refreshed', response)
 
 @socketio.on('orders')
 def orders(printers):
@@ -585,12 +606,13 @@ def orders(printers):
         format_printers = "('{}')".format("','".join([str(i) for i in printers]))
         db.session.execute(text("UPDATE `salestran` SET `ordered` = `encoded` WHERE `ordered` IS NULL"))
         db.session.commit()
-        sql = text("""SELECT o.*, i.model 
+        sql = text("""SELECT o.*, i.model, i.class as cl 
                         FROM salestran o 
                         LEFT JOIN item i on i.barcode = o.barcode 
-                        WHERE i.model IN %s ORDER BY o.`ordered` ASC""" % format_printers)
+                        WHERE i.barcode > 0 AND i.model IN %s ORDER BY o.`ordered` ASC""" % format_printers)
 
         tables = dict()
+        todos = dict()
         current = datetime.now()
         for row in db.session.execute(sql):
             if 'k'+str(row.client) not in tables:
@@ -614,8 +636,18 @@ def orders(printers):
                 "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
             }
             tables['k'+str(row.client)]['items'].append(obj)
+            if row.served is None:
+                if row.cl not in todos:
+                    todos[row.cl] = dict()
+                if row.barcode not in todos[row.cl]:
+                    todos[row.cl][row.barcode] = {
+                        'name': row.itemname,
+                        'printer': row.model,
+                        'count': 0
+                    }
+                todos[row.cl][row.barcode]['count'] += float(row.isqty)
         db.session.close()
-        emit('observe', tables)
-        time.sleep(30)
+        emit('observe', {"todos": todos, "tables": tables})
+        time.sleep(60)
 if __name__ == '__main__':
     socketio.run(app=app,port=8000,debug=True)

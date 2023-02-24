@@ -88,6 +88,10 @@ elif action == "items":
                     else:
                         db.session.execute(text("INSERT INTO `itemdlock`(`itemid`, `dlock`) VALUES('{itemid}', '{dlock}')".format(itemid=p.itemid, dlock=p.dlock)))
                 
+                if product['name'] != p.itemname or product['name'] != p.shortname:
+                    db.session.execute(text("UPDATE `item` set `itemname`='{itemname}', `shortname`='{shortname}' WHERE `itemid`='{itemid}'".format(itemname=product['name'], shortname=product['name'], itemid=p.itemid)))
+                    print("{name} name is updated...".format(name=product['name']))
+
                 if float(product['price']) != float(p.amt):
                     db.session.execute(text("UPDATE `item` set `amt`='{amt}' WHERE `itemid`='{itemid}'".format(amt=product['price'], itemid=p.itemid)))
                     print("{name} price is updated...".format(name=product['name']))

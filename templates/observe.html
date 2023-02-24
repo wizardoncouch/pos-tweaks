@@ -14,6 +14,11 @@
         this.kitchenOptions = [];
         this.kitchens = [];
         this.dropdowns = [];
+        this.width = function(){
+            let w = (Math.floor(window.screen.width / 6)); 
+            if(w < 250) w = 250;
+            return w
+        }
         this.getKitchens = function(){
             let kitchen = window.localStorage.getItem('kitchen')
             let observe = window.localStorage.getItem('observe')
@@ -33,7 +38,7 @@
         }
         this.selectKitchen = function(){
             let self = this
-            let card = $('<div />').addClass('shadow-sm card border-0 mx-auto').width(420);
+            let card = $('<div />').addClass('shadow-sm card border-0 mx-auto').width(this.width());
             let cardBody = $('<div />').addClass('card-body p-5');
             if(this.kitchenOptions.length){
                 let priority = $('<div />').addClass("mb-3")
@@ -100,11 +105,11 @@
                             self.dropdowns.splice(index, 1); 
                         } 
                         await self.table(object)
-                        $('.grid').masonry({percentPosition: true})
+                        $('.grid').masonry()
                     })
                 ).appendTo(card);
                 $('<div />').addClass('card-body p-0').appendTo(card);
-                $('<div />').addClass('mb-2').html(card).appendTo($('#tables-wrapper')).width(250);
+                $('<div />').css({width: this.width()+'px'}).addClass('mb-2').html(card).appendTo($('#tables-wrapper'))
             }
             $('#table-'+object.client).find('.card-body').html('');
             if(!object.items.length) return false;
@@ -113,33 +118,34 @@
             let cntr = 0;
             let groupings = {};
             let completed = true;
-            let latest = null;
+            let latest = 0;
             object.items.forEach((item) => {
-                let row = $('<div />').attr('id', 'id-'+item.id).css('margin', '.5px 2px');
+                let row = $('<div />').attr('id', 'id-'+item.id).css('margin', '1px 2px');
                 let pending = $('<div />').addClass('bg-warning bg-opacity-50')
                 if(item.printer == this.kitchen){
-                    pending = $('<a />').attr('type', 'button').addClass('bg-white');
+                    pending = $('<a />').attr('type', 'button').addClass('bg-white').css('border', '1px solid #efefef');
                     pending.click(function(){
-                        if(confirm(`Serve ${item.name} for table ${item.table}?`)){
-                            $.post('/order/serve', {id:item.id}).done(function(){
-                                //do nothing
-                                //emit('served', item.client, broadcast=True)
-                            });
-                        }
+                        $.post('/order/serve/out', {id:item.id});
                     });
                 }
-                pending.addClass('text-decoration-none rounded-1 p-2 d-block').css('border', '1px solid #efefef');
-                $('<div />').addClass('text-uppercase').addClass(item.printer == this.kitchen ? 'fw-bold text-dark': 'text-secondary').css('font-size', '14px').html(item.qty+' '+item.name).appendTo(pending);
-                if(item.group != 'A') $('<div />').addClass('small text-secondary').css('font-size', '12px').html('- Group '+item.group).appendTo(pending);
+                pending.addClass('text-decoration-none rounded-1 p-1 d-block');
+                $('<div />').addClass('text-uppercase').addClass(item.printer == this.kitchen ? 'fw-bold text-dark': 'text-secondary').css('font-size', '1rem').html(item.qty+' '+item.name).appendTo(pending);
+                if(item.group != 'A') $('<div />').addClass('small text-secondary').html('- Group '+item.group).appendTo(pending);
                 if(item.remarks > '') $('<div class="small text-danger" />').html('- '+item.remarks).appendTo(pending);
 
-                let served = $('<div />').addClass('rounded-1 p-1 served d-block d-flex justify-content-between').css('background','#e4e4e4');
+                let served = $('<div />')
+                if(item.printer == this.kitchen){
+                    served = $('<a />').attr('href', 'javascript:void(0)').click(function(){
+                        $.post('/order/serve/recall', {id:item.id});
+                    });
+                }
+                served.addClass('rounded-1 p-1 served d-block text-dark text-decoration-none d-flex justify-content-between').css('background','#e4e4e4');
                 let g = item.group != 'A' ? '<i>('+item.group+')</i>':''
                 $('<div />').append(
-                    $('<div />').addClass('text-uppercase').css('font-size', '12px').html(item.qty+' '+item.name+g),
+                    $('<div />').addClass('text-uppercase').css('font-size', '.9rem').html(item.qty+' '+item.name+g),
                     (item.remarks > '' ? $('<div class="small text-danger" />').css('font-size', '10px').html('- '+item.remarks):'')
                 ).appendTo(served)
-                $('<div />').addClass('small text-secondary').css('font-size', '10px').html('served '+(item.served > 0 ? item.served + 'm': 'just now')).appendTo(served);
+                $('<div />').addClass('small text-secondary').css('font-size', '.8rem').html('served '+(item.served > 0 ? item.served + 'm': 'just now')).appendTo(served);
                 if(item.served == null){
                     served.removeClass('d-block').addClass('d-none');
                     pending.removeClass('d-none').addClass('d-block');
@@ -163,7 +169,7 @@
                     groupings[cntr].served = false
                     completed = false
                 }
-                if(item.served && (latest == null || latest > item.served)) latest = item.served
+                if(item.served && (latest == 0 || latest > item.served)) latest = item.served
                 groupings[cntr].rows.push(row);
             });
             for (const cntr in groupings) {
@@ -205,15 +211,50 @@
                 }
             }
         }
-
-        this.display = async function(response){
-            if(Object.keys(response).length > 0){
-                $('#observer-wrapper').html($('<div />').addClass('grid').attr('id', 'tables-wrapper'));
-                for(const key in response){
-                    await this.table(response[key])
+        this.todos = function(todos){
+            let wrapper = $('#todos-wrapper')
+            wrapper.html('')
+            if(this.kitchen){
+                wrapper.css({overflow:'auto'})
+                $('<p />').addClass('fs-5 text-center text-white py-2').html(this.kitchen).appendTo(wrapper)
+                for(const category in todos){
+                    let rows = []
+                    for(const barcode in todos[category]){
+                        let todo = todos[category][barcode];
+                        if(todo.printer != this.kitchen) continue;
+                        let row = $('<p />').addClass('text-white ms-3 mb-0').html(todo.count + ' - ' + todo.name)
+                        rows.push(row)
+                    }
+                    if(rows.length > 0){
+                        $('<p />').addClass('text-white text-uppercase fs-5 mb-0 ms-1').html(category).appendTo(wrapper);
+                        for(const i in rows){
+                            wrapper.append(rows[i])
+                        }
+                        $('<hr />').addClass('text-light m-1').appendTo(wrapper);
+                    }
                 }
             }else{
-                $('#observer-wrapper').html($('<div />').addClass('vh-100 d-flex justify-content-center align-items-center fs-1 text-uppercase text-white').html('No orders yet.'));
+                wrapper.addClass('d-none');
+            }
+        }
+
+        this.display = async function(response){
+            let todos = response.todos
+            let tables = response.tables
+            let wrapper = $('#observer-wrapper');
+            wrapper.addClass('d-flex');
+
+            if(Object.keys(tables).length > 0){
+                wrapper.html('').append(
+                    $('<div />').addClass('bg-dark').attr('id', 'todos-wrapper').width(this.width()),
+                    $('<div />').addClass('flex-fill grid').attr('id', 'tables-wrapper')
+                )
+                await this.todos(todos)
+                for(const key in tables){
+                    await this.table(tables[key])
+                }
+            }else{
+                wrapper.addClass('justify-content-center align-items-center fs-1 text-uppercase text-white').html('No orders yet');
             }
         }
     }
@@ -229,18 +270,18 @@
             observe.kitchens = [...[observe.kitchen], ...observe.observe]
             socket.on('connect', function() {
                 socket.emit('orders', observe.kitchens);
-                //socket.emit('todos', observe.kitchens);
             }); 
             socket.on('observe', async function(response){
                 await observe.display(response);
-                $('.grid').masonry({percentPosition: true})
+                $('.grid').masonry()
             });
             socket.on('updated', function(response){
                 socket.emit('refresh', response, observe.kitchens)
             });
             socket.on('refreshed', async function(response){
-                await observe.table(response);
-                $('.grid').masonry({percentPosition: true})
+                await observe.todos(response.todos);
+                await observe.table(response.table);
+                //$('.grid').masonry()
             });
         }
         $('body').append($('<span />').css({color:'white', position:'absolute', zIndex:999, bottom:0, right:0}).html(window.screen.width+'x'+window.screen.height))
