@@ -574,14 +574,14 @@ def refresh(table, printers):
 @socketio.on('read')
 def read(printers):
     format_printers = "('{}')".format("','".join([str(i) for i in printers]))
-    db.session.execute(text("UPDATE `salestran` SET `ordered` = `encoded` WHERE `ordered` IS NULL"))
-    db.session.commit()
-    sql = text("""SELECT o.* 
-                    FROM salestran o 
-                    LEFT JOIN item i on i.barcode = o.barcode 
-                    WHERE i.model IN %s ORDER BY o.`ordered` ASC""" % format_printers)
-
     while True:
+        db.session.execute(text("UPDATE `salestran` SET `ordered` = `encoded` WHERE `ordered` IS NULL"))
+        db.session.commit()
+        sql = text("""SELECT o.* 
+                        FROM salestran o 
+                        LEFT JOIN item i on i.barcode = o.barcode 
+                        WHERE i.model IN %s ORDER BY o.`ordered` ASC""" % format_printers)
+
         tables = dict()
         current = datetime.now()
         for row in db.session.execute(sql):
