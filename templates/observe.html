@@ -92,14 +92,15 @@
                 card = $('<div />').addClass('card m-1 border-0 shadow-sm').attr('id', 'table-'+object.client);
                 $('<div />').addClass('card-header border-0 bg-primary  d-flex justify-content-between').append(
                     $('<pan />').addClass('text-white fs-6 fw-bold text-uppercase').html(object.name),
-                    $('<a />').attr('href', 'javascript:void(0);').addClass('text-white text-decoration-none d-none').attr('id', 'table-dropdown-'+object.client).click(function(){
+                    $('<a />').attr('href', 'javascript:void(0);').addClass('text-white text-decoration-none d-none').attr('id', 'table-dropdown-'+object.client).click(async function(){
                         if(!self.dropdowns.includes(object.client)){
                             self.dropdowns.push(object.client)
                         }else{
                             const index = self.dropdowns.indexOf(object.client)
                             self.dropdowns.splice(index, 1); 
                         } 
-                        self.table(object)
+                        await self.table(object)
+                        $('.grid').masonry('reloadItems')
                     })
                 ).appendTo(card);
                 $('<div />').addClass('card-body p-0').appendTo(card);
@@ -115,9 +116,9 @@
             let latest = null;
             object.items.forEach((item) => {
                 let row = $('<div />').attr('id', 'id-'+item.id).css('margin', '.5px 2px');
-                let pending = $('<div />');
+                let pending = $('<div />').addClass('bg-warning bg-opacity-50')
                 if(item.printer == this.kitchen){
-                    pending = $('<a />').attr('type', 'button');
+                    pending = $('<a />').attr('type', 'button').addClass('bg-white');
                     pending.click(function(){
                         if(confirm(`Serve ${item.name} for table ${item.table}?`)){
                             $.post('/order/serve', {id:item.id}).done(function(){
@@ -127,8 +128,8 @@
                         }
                     });
                 }
-                pending.addClass('text-decoration-none rounded-1 p-2 d-block bg-white').css('border', '1px solid #efefef');
-                $('<div />').addClass('fw-bold text-uppercase').addClass(item.printer == this.kitchen ? 'text-dark': 'text-secondary').css('font-size', '14px').html(item.qty+' '+item.name).appendTo(pending);
+                pending.addClass('text-decoration-none rounded-1 p-2 d-block').css('border', '1px solid #efefef');
+                $('<div />').addClass('text-uppercase').addClass(item.printer == this.kitchen ? 'fw-bold text-dark': 'text-secondary').css('font-size', '14px').html(item.qty+' '+item.name).appendTo(pending);
                 if(item.group != 'A') $('<div />').addClass('small text-secondary').css('font-size', '12px').html('- Group '+item.group).appendTo(pending);
                 if(item.remarks > '') $('<div class="small text-danger" />').html('- '+item.remarks).appendTo(pending);
 
