@@ -77,7 +77,7 @@
                 if(item.group != 'A') $('<div />').addClass('small text-secondary').css('font-size', '12px').html('- Group '+item.group).appendTo(pending);
                 if(item.remarks > '') $('<div class="small text-danger" />').html('- '+item.remarks).appendTo(pending);
 
-                let served = $('<div />').addClass('rounded-sm shadow-sm p-1 served d-block d-flex justify-content-between').css('background','#e4e4e4');
+                let served = $('<div />').addClass('rounded-sm p-1 served d-block d-flex justify-content-between').css('background','#e4e4e4');
                 let g = item.group != 'A' ? '<i>('+item.group+')</i>':''
                 $('<div />').append(
                     $('<div />').addClass('fw-bold text-uppercase').css('font-size', '12px').html(item.name+g),
@@ -116,14 +116,23 @@
             });
             for (const cntr in groupings) {
                 let g = groupings[cntr]
-                let color = '#27ae60';
-                if(g.duration > 20) color = '#e67e22';
-                if(g.duration > 30) color = '#c0392b';
-                if(g.served) color = '#6c757d';
-                let gwrapper = $('<div />').addClass('rounded-1 mx-1 my-1').css({background: color+'44'}).css({padding: '1px'})
+                let bgc = '#007fffbf';
+                let fc = 'white'
+                //if(g.duration > 20){
+                //    bgc = 'orange';
+                //    fc = 'white';
+                //}
+                //if(g.duration > 30){
+                //    bgc = 'red';
+                //    fc = 'white';
+                //}
+                if(g.served){
+                    bgc = '#6c757d44';
+                }
+                let gwrapper = $('<div />').addClass('rounded-1 mx-1 my-1').css({background: bgc}).css({padding: '1px'})
                 if(!g.served){
                     gwrapper.append(
-                        $('<p />').addClass('fw-bold mb-0 text-end px-2').css({fontSize:'12px', 'color': color}).html(
+                        $('<p />').addClass('fw-bold mb-0 text-center px-2').css({fontSize:'18px', 'color': fc}).html(
                             $('<span />').html(g.duration > 0 ? g.duration+'m':'now')
                         )
                     );
@@ -142,7 +151,6 @@
                 for(const key in response){
                     await this.table(response[key])
                 }
-                $('.grid').masonry({percentPosition: true})
             }else{
                 $('#observer-wrapper').html($('<div />').addClass('vh-100 d-flex justify-content-center align-items-center fs-1 text-uppercase text-white').html('No orders yet.'));
             }
@@ -155,14 +163,16 @@
             socket.on('connect', function() {
                 socket.emit('read', observe.kitchens);
             }); 
-            socket.on('observe', function(response){
-                observe.display(response);
+            socket.on('observe', async function(response){
+                await observe.display(response);
+                $('.grid').masonry({percentPosition: true})
             });
             socket.on('updated', function(response){
                 socket.emit('refresh', response, observe.kitchens)
             });
-            socket.on('refreshed', function(response){
-                observe.table(response);
+            socket.on('refreshed', async function(response){
+                await observe.table(response);
+                $('.grid').masonry('reloadItems')
             });
         }else{
             observe.selectKitchen()
