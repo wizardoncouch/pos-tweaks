@@ -77,13 +77,13 @@
                 if(item.group != 'A') $('<div />').addClass('small text-secondary').css('font-size', '12px').html('- Group '+item.group).appendTo(pending);
                 if(item.remarks > '') $('<div class="small text-danger" />').html('- '+item.remarks).appendTo(pending);
 
-                let served = $('<div />').addClass('rounded shadow-sm p-1 served d-block').css('background','#e8e8e8');
+                let served = $('<div />').addClass('rounded shadow-sm p-1 served d-block d-flex justify-content-between').css('background','#e4e4e4');
                 let g = item.group != 'A' ? '<i>('+item.group+')</i>':''
-                $('<div />').addClass('fw-bold text-uppercase').css('font-size', '13px').html('<s>'+item.name+g+'</s>').appendTo(served)
-                $('<div />').addClass('small text-secondary').css('font-size', '12px').html('- Served '+(item.served > 0 ? item.served + 'm': 'just now')).appendTo(served);
-                if(item.remarks > ''){
-                    $('<div class="small text-danger" />').css('font-size', '12px').html('- '+item.remarks).appendTo(served);
-                }
+                $('<div />').append(
+                    $('<div />').addClass('fw-bold text-uppercase').css('font-size', '12px').html(item.name+g),
+                    (item.remarks > '' ? $('<div class="small text-danger" />').css('font-size', '10px').html('- '+item.remarks):'')
+                ).appendTo(served)
+                $('<div />').addClass('small text-secondary').css('font-size', '10px').html('served '+(item.served > 0 ? item.served + 'm': 'just now')).appendTo(served);
                 if(item.served == null){
                     served.removeClass('d-block').addClass('d-none');
                     pending.removeClass('d-none').addClass('d-block');
