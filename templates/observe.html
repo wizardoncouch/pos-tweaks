@@ -100,7 +100,7 @@
                             self.dropdowns.splice(index, 1); 
                         } 
                         await self.table(object)
-                        $('.grid').masonry('reloadItems')
+                        $('.grid').masonry({percentPosition: true})
                     })
                 ).appendTo(card);
                 $('<div />').addClass('card-body p-0').appendTo(card);
@@ -239,7 +239,7 @@
             });
             socket.on('refreshed', async function(response){
                 await observe.table(response);
-                $('.grid').masonry('reloadItems')
+                $('.grid').masonry({percentPosition: true})
             });
         }
     });
