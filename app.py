@@ -424,6 +424,8 @@ def order_accept():
                 p.cut() 
             else:
                 return make_response(jsonify({'error': 'No Printer Configuration'}))
+        
+        socketio.emit('updated', table.client, broadcast=True)
         return make_response(jsonify({'success': 'Orders Printed'}))
     except:
         return make_response(jsonify({'error': 'Printer error'}))
@@ -453,6 +455,8 @@ def order_update():
             osno = transaction.osno
     db.session.execute(text("UPDATE salestran SET `osno`='{osno}', `grp`='{group}', `client`='{client}', `clientname`='{clientname}' WHERE `line`='{line}'".format(osno=osno, group=group, client=client, clientname=clientname, line=item.line)))
     db.session.commit()
+
+    socketio.emit('updated', item.client, broadcast=True)
 
     return make_response(jsonify({'success': 'Item updated'}))
 
@@ -509,6 +513,8 @@ def order_void():
             db.session.execute(text("DELETE FROM `salestran` WHERE `line`='{line}'".format(line=line)))
             db.session.commit()
 
+        socketio.emit('updated', item.client, broadcast=True)
+
         return make_response(jsonify({'success': 'Item Cancelled'}))
     except:
         return make_response(jsonify({'error': 'Printing error'}))
@@ -522,7 +528,7 @@ def order_serve():
     
     db.session.execute(text("UPDATE salestran SET `served`='{d}' WHERE `line`='{line}'".format(d=datetime.now(), line=item.line)))
     db.session.commit()
-    socketio.emit('served', item.client, broadcast=True)
+    socketio.emit('updated', item.client, broadcast=True)
 
     return make_response(jsonify({'success': 'Item served'}))
 

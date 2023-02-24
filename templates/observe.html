@@ -158,7 +158,7 @@
             socket.on('observe', function(response){
                 observe.display(response);
             });
-            socket.on('served', function(response){
+            socket.on('updated', function(response){
                 socket.emit('refresh', response, observe.kitchens)
             });
             socket.on('refreshed', function(response){
