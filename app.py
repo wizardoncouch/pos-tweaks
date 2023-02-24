@@ -564,9 +564,7 @@ def refresh(table, printers):
                     "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
                 } for row in db.session.execute(sql)]
         db.session.close()
-        response = dict()
-        response[t.client] = {"name": t.clientname, "items": items}
-        emit('refreshed', response)
+        emit('refreshed', {"client":t.client, "name": t.clientname, "items": items})
 
 @socketio.on('read')
 def read(printers):
@@ -582,8 +580,9 @@ def read(printers):
         tables = dict()
         current = datetime.now()
         for row in db.session.execute(sql):
-            if row.client not in tables:
-                tables[row.client] = {
+            if 'k'+str(row.client) not in tables:
+                tables['k'+str(row.client)] = {
+                    "client": row.client,
                     'name': row.clientname,
                     'items': []
                 }
@@ -602,7 +601,7 @@ def read(printers):
                 "duration": math.floor((current - row.ordered).total_seconds()/60),
                 "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
             }
-            tables[row.client]['items'].append(obj)
+            tables['k'+str(row.client)]['items'].append(obj)
         db.session.close()
         emit('observe', tables)
         time.sleep(60)

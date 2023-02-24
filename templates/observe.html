@@ -55,16 +55,16 @@
             });
         }
 
-        this.table = function(key, object){
+        this.table = function(object){
             let self = this;
 
-            if(!$('#table-'+key).length){
-                card = $('<div />').addClass('card m-1 border-0 shadow-sm').attr('id', 'table-'+key);
+            if(!$('#table-'+object.client).length){
+                card = $('<div />').addClass('card m-1 border-0 shadow-sm').attr('id', 'table-'+object.client);
                 $('<div />').addClass('card-header border-0 bg-primary text-white fs-6 fw-bold text-start text-uppercase').append(object.name).appendTo(card);
                 $('<div />').addClass('card-body p-0').appendTo(card);
                 $('<div />').css({float:'left', width:'250px'}).addClass('mb-2').html(card).appendTo($('#tables-wrapper'));
             }
-            $('#table-'+key).find('.card-body').html('');
+            $('#table-'+object.client).find('.card-body').html('');
             if(!object.items.length) return false;
 
             let duration = null;
@@ -131,17 +131,21 @@
                 g.rows.forEach(row => {
                     gwrapper.append(row);
                 })
-                $('#table-'+key).find('.card-body').append(gwrapper);
+                $('#table-'+object.client).find('.card-body').append(gwrapper);
             }
         }
 
         this.display = async function(response){
-            $('#observer-wrapper').html($('<div />').addClass('grid').attr('id', 'tables-wrapper'));
-            for(key in response){
-                let items = response[key]
-                await this.table(key, items)
+            console.log('r', response);
+            if(Object.keys(response).length > 0){
+                $('#observer-wrapper').html($('<div />').addClass('grid').attr('id', 'tables-wrapper'));
+                for(const key in response){
+                    await this.table(response[key])
+                }
+                $('.grid').masonry({percentPosition: true})
+            }else{
+                $('#observer-wrapper').html($('<div />').addClass('vh-100 d-flex justify-content-center align-items-center fs-1 text-uppercase text-white').html('No orders yet.'));
             }
-            $('.grid').masonry({percentPosition: true})
         }
     }
     var observe = new Observe()
@@ -158,9 +162,7 @@
                 socket.emit('refresh', response, observe.kitchens)
             });
             socket.on('refreshed', function(response){
-                let key = Object.keys(response)[0]
-                let obj = response[key];
-                observe.table(key, obj);
+                observe.table(response);
             });
         }else{
             observe.selectKitchen()
