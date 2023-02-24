@@ -565,7 +565,7 @@ def refresh(table, printers):
                     "table": row.clientname,
                     "client": row.client,
                     "danger": 1,
-                    "duration": math.floor((current - row.ordered).total_seconds()/60),
+                    "duration": math.floor((current - (row.ordered if row.ordered else 0)).total_seconds()/60),
                     "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
                 } for row in db.session.execute(sql)]
         db.session.close()
@@ -602,7 +602,7 @@ def read(printers):
                 "table": row.clientname,
                 "client": row.client,
                 "danger": 1,
-                "duration": math.floor((current - row.ordered).total_seconds()/60),
+                "duration": math.floor((current - (row.ordered if row.ordered else 0)).total_seconds()/60),
                 "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
             }
             tables['k'+str(row.client)]['items'].append(obj)
