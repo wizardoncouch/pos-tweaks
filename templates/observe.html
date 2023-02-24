@@ -8,51 +8,81 @@
 <script src="{{ url_for('static', filename= 'js/masonry.min.js') }}"></script>
 <script type="text/javascript">
     var socket = io();
-    function Observe(){
-        this.kitchens = []
-        this.getObserve = function(){
-            let observer = window.localStorage.getItem('observer')
-            if(!observer) this.kitchens = []
-            else this.kitchens = JSON.parse(observer)
+    function Kitchen(){
+        this.kitchen = null;
+        this.observe = [];
+        this.kitchenOptions = [];
+        this.kitchens = [];
+        this.dropdowns = [];
+        this.getKitchens = function(){
+            let kitchen = window.localStorage.getItem('kitchen')
+            let observe = window.localStorage.getItem('observe')
+            if(!observe) this.observe = []
+            else this.observe = JSON.parse(observe)
+            if(!kitchen) this.kitchen = null
+            else this.kitchen = JSON.parse(kitchen)
         }
-        this.setObserve = function (){
-            window.localStorage.setItem('observer', JSON.stringify(this.kitchens));
+        this.saveKitchens = function (){
+            if(this.kitchen == null){
+                alert('Please select priority kitchen');
+                return false;
+            }
+            window.localStorage.setItem('kitchen', JSON.stringify(this.kitchen));
+            window.localStorage.setItem('observe', JSON.stringify(this.observe));
             document.location.reload();
         }
         this.selectKitchen = function(){
             let self = this
-            $.get('/kitchens').then(function(response){
-                let card = $('<div />').addClass('w-25 shadow-sm card border-0 mx-auto');
-                let cardBody = $('<div />').addClass('card-body p-5');
-                if(response.length){
-                    response.forEach((row, i) => {
+            let card = $('<div />').addClass('shadow-sm card border-0 mx-auto').width(420);
+            let cardBody = $('<div />').addClass('card-body p-5');
+            if(this.kitchenOptions.length){
+                let priority = $('<div />').addClass("mb-3")
+                $('<label />').addClass('form-label fw-bold').html('Priority').appendTo(priority);
+
+                let select = $('<select />').addClass('form-select').change(function(){
+                    self.kitchen = $(this).val()
+                    self.selectKitchen()
+                });
+                $('<option selected />').html('Select Printer').appendTo(select)
+                this.kitchenOptions.forEach((row, i) => {
+                    $('<option />').attr('value', row.printer).attr('selected', row.printer == this.kitchen).html(row.printer).appendTo(select)
+                });
+                select.appendTo(priority)
+                priority.appendTo(cardBody)
+
+                let observe = $('<div />').addClass("mb-3")
+                $('<label />').addClass('form-label fw-bold').html('Observe').appendTo(observe);
+                this.kitchenOptions.forEach((row, i) => {
+                    if(row.printer != this.kitchen){
                         let id = 'btn-check-'+i;
-                        $('<div />').append(
-                            $('<input />').attr('type', 'checkbox').addClass('btn-check').attr('id', id).attr('autocomplete', 'off').change(function(){
+                        $('<div />').addClass('form-check form-switch').append(
+                            $('<input />').attr('type', 'checkbox').addClass('form-check-input').attr('id', id).attr('autocomplete', 'off').change(function(){
                                 if($(this).is(':checked')){
-                                    if(!self.kitchens.includes(row.printer)){
-                                        self.kitchens.push(row.printer)
+                                    if(!self.observe.includes(row.printer)){
+                                        self.observe.push(row.printer)
                                     }
                                 }else{
-                                    const index = self.kitchens.indexOf(row.printer)
+                                    const index = self.observe.indexOf(row.printer)
                                     self.kitchens.splice(index, 1);
                                 }
                             }),
-                            $('<label />').addClass('btn btn-outline-success w-100 mb-2').attr('for', id).html(row.printer)
-                        ).appendTo(cardBody);
-                    });
-                }
-                let cardFooter = $('<div />').addClass('card-footer text-center bg-white border-0 p-5');
-                $('<button />').attr('type', 'button').addClass('btn btn-primary').click(function(){
-                    $(this).prop('disabled', true).html('Getting Orders...');
-                    self.setObserve();
-                }).html('Start Observing').appendTo(cardFooter);
-                $('<div />').addClass('card-header border-0 text-center text-uppercase bg-primary text-white fs-5').html('Observe Orders From').appendTo(card)
-                cardBody.appendTo(card)
-                cardFooter.appendTo(card)
+                            $('<label />').addClass('form-check-label').attr('for', id).html(row.printer)
+                        ).appendTo(observe);
+                    }
+                });
+                observe.appendTo(cardBody)
+            }
+            let cardFooter = $('<div />').addClass('card-footer text-center bg-white border-0 p-5');
+            $('<button />').attr('type', 'button').addClass('btn btn-primary').click(async function(){
+                $(this).prop('disabled', true).html('Getting Orders...');
+                await self.saveKitchens();
+                $(this).prop('disabled', false).html('Start Observing');
+            }).html('Start Observing').appendTo(cardFooter);
+            $('<div />').addClass('card-header border-0 text-center text-uppercase bg-primary text-white fs-5').html('Observe Orders From').appendTo(card)
+            cardBody.appendTo(card)
+            cardFooter.appendTo(card)
 
-                $('#observer-wrapper').css('padding', '30px 0').html(card);
-            });
+            $('#observer-wrapper').css('padding', '30px 0').html(card);
         }
 
         this.table = function(object){
@@ -60,7 +90,18 @@
 
             if(!$('#table-'+object.client).length){
                 card = $('<div />').addClass('card m-1 border-0 shadow-sm').attr('id', 'table-'+object.client);
-                $('<div />').addClass('card-header border-0 bg-primary text-white fs-6 fw-bold text-start text-uppercase').append(object.name).appendTo(card);
+                $('<div />').addClass('card-header border-0 bg-primary  d-flex justify-content-between').append(
+                    $('<pan />').addClass('text-white fs-6 fw-bold text-uppercase').html(object.name),
+                    $('<a />').attr('href', 'javascript:void(0);').addClass('text-white text-decoration-none d-none').attr('id', 'table-dropdown-'+object.client).click(function(){
+                        if(!self.dropdowns.includes(object.client)){
+                            self.dropdowns.push(object.client)
+                        }else{
+                            const index = self.dropdowns.indexOf(object.client)
+                            self.dropdowns.splice(index, 1); 
+                        } 
+                        self.table(object)
+                    })
+                ).appendTo(card);
                 $('<div />').addClass('card-body p-0').appendTo(card);
                 $('<div />').css({float:'left', width:'250px'}).addClass('mb-2').html(card).appendTo($('#tables-wrapper'));
             }
@@ -70,17 +111,31 @@
             let duration = null;
             let cntr = 0;
             let groupings = {};
+            let completed = true;
+            let latest = null;
             object.items.forEach((item) => {
-                let row = $('<div />').attr('id', 'id-'+item.id).css('margin', '2px');
-                let pending = $('<a />').attr('type', 'button').addClass('text-decoration-none rounded-1 p-2 d-block bg-white').css('border', '1px solid #efefef');
-                $('<div />').addClass('fw-bold text-uppercase text-dark').css('font-size', '14px').html(item.name).appendTo(pending);
+                let row = $('<div />').attr('id', 'id-'+item.id).css('margin', '.5px 2px');
+                let pending = $('<div />');
+                if(item.printer == this.kitchen){
+                    pending = $('<a />').attr('type', 'button');
+                    pending.click(function(){
+                        if(confirm(`Serve ${item.name} for table ${item.table}?`)){
+                            $.post('/order/serve', {id:item.id}).done(function(){
+                                //do nothing
+                                //emit('served', item.client, broadcast=True)
+                            });
+                        }
+                    });
+                }
+                pending.addClass('text-decoration-none rounded-1 p-2 d-block bg-white').css('border', '1px solid #efefef');
+                $('<div />').addClass('fw-bold text-uppercase').addClass(item.printer == this.kitchen ? 'text-dark': 'text-secondary').css('font-size', '14px').html(item.qty+' '+item.name).appendTo(pending);
                 if(item.group != 'A') $('<div />').addClass('small text-secondary').css('font-size', '12px').html('- Group '+item.group).appendTo(pending);
                 if(item.remarks > '') $('<div class="small text-danger" />').html('- '+item.remarks).appendTo(pending);
 
                 let served = $('<div />').addClass('rounded-1 p-1 served d-block d-flex justify-content-between').css('background','#e4e4e4');
                 let g = item.group != 'A' ? '<i>('+item.group+')</i>':''
                 $('<div />').append(
-                    $('<div />').addClass('fw-bold text-uppercase').css('font-size', '12px').html(item.name+g),
+                    $('<div />').addClass('text-uppercase').css('font-size', '12px').html(item.qty+' '+item.name+g),
                     (item.remarks > '' ? $('<div class="small text-danger" />').css('font-size', '10px').html('- '+item.remarks):'')
                 ).appendTo(served)
                 $('<div />').addClass('small text-secondary').css('font-size', '10px').html('served '+(item.served > 0 ? item.served + 'm': 'just now')).appendTo(served);
@@ -91,14 +146,6 @@
                     served.removeClass('d-none').addClass('d-block');
                     pending.removeClass('d-block').addClass('d-none');
                 }
-                pending.click(function(){
-                    if(confirm(`Serve ${item.name} for table ${item.table}?`)){
-                        $.post('/order/serve', {id:item.id}).done(function(){
-                            //do nothing
-                            //emit('served', item.client, broadcast=True)
-                        });
-                    }
-                });
 
                 row.append(pending);
                 row.append(served);
@@ -111,7 +158,11 @@
                         served: true
                     }
                 }
-                if(groupings[cntr].served == true && item.served == null) groupings[cntr].served = false
+                if(groupings[cntr].served == true && item.served == null){
+                    groupings[cntr].served = false
+                    completed = false
+                }
+                if(item.served && (latest == null || latest > item.served)) latest = item.served
                 groupings[cntr].rows.push(row);
             });
             for (const cntr in groupings) {
@@ -142,10 +193,19 @@
                 })
                 $('#table-'+object.client).find('.card-body').append(gwrapper);
             }
+            if(completed){
+                if(this.dropdowns.includes(object.client)){
+                    $('#table-'+object.client).find('.card-body').removeClass('d-none');
+                    $('#table-'+object.client).find('.card-header').removeClass('rounded');
+                }else{
+                    $('#table-'+object.client).find('.card-body').addClass('d-none');
+                    $('#table-'+object.client).find('.card-header').addClass('rounded');
+                    $('#table-dropdown-'+object.client).html(latest+'m').removeClass('d-none');
+                }
+            }
         }
 
         this.display = async function(response){
-            console.log('r', response);
             if(Object.keys(response).length > 0){
                 $('#observer-wrapper').html($('<div />').addClass('grid').attr('id', 'tables-wrapper'));
                 for(const key in response){
@@ -156,10 +216,16 @@
             }
         }
     }
-    var observe = new Observe()
+    var observe = new Kitchen()
     $(document).ready(function(){
-        observe.getObserve()
-        if(observe.kitchens.length > 0){
+        observe.getKitchens()
+        if(observe.kitchen == null){
+            $.get('/kitchens').then(function(response){
+                observe.kitchenOptions = response
+                observe.selectKitchen()
+            });
+        }else{
+            observe.kitchens = [...[observe.kitchen], ...observe.observe]
             socket.on('connect', function() {
                 socket.emit('read', observe.kitchens);
             }); 
@@ -174,8 +240,6 @@
                 await observe.table(response);
                 $('.grid').masonry('reloadItems')
             });
-        }else{
-            observe.selectKitchen()
         }
     });
 </script>

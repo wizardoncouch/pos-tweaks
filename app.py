@@ -549,7 +549,7 @@ def refresh(table, printers):
     t = db.session.execute(text("SELECT * FROM `client` where `client`='{table}'".format(table=table))).fetchone()
     if t:
         format_printers = "('{}')".format("','".join([str(i) for i in printers]))
-        sql = text("""SELECT o.* 
+        sql = text("""SELECT o.*, i.model 
                     FROM salestran o 
                     LEFT JOIN item i on i.barcode = o.barcode 
                     WHERE i.model IN {printers} AND `client`='{client}' ORDER BY o.`ordered` ASC""".format(printers=format_printers, client=t.client))
@@ -564,7 +564,7 @@ def refresh(table, printers):
                     "group": row.grp,
                     "table": row.clientname,
                     "client": row.client,
-                    "danger": 1,
+                    "printer": row.model,
                     "duration": math.floor((current - (row.ordered if row.ordered else 0)).total_seconds()/60),
                     "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
                 } for row in db.session.execute(sql)]
@@ -577,7 +577,7 @@ def read(printers):
     while True:
         db.session.execute(text("UPDATE `salestran` SET `ordered` = `encoded` WHERE `ordered` IS NULL"))
         db.session.commit()
-        sql = text("""SELECT o.* 
+        sql = text("""SELECT o.*, i.model 
                         FROM salestran o 
                         LEFT JOIN item i on i.barcode = o.barcode 
                         WHERE i.model IN %s ORDER BY o.`ordered` ASC""" % format_printers)
@@ -601,7 +601,7 @@ def read(printers):
                 "group": row.grp,
                 "table": row.clientname,
                 "client": row.client,
-                "danger": 1,
+                "printer": row.model,
                 "duration": math.floor((current - (row.ordered if row.ordered else 0)).total_seconds()/60),
                 "served": math.floor((current - row.served).total_seconds()/60) if row.served else None
             }
