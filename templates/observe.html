@@ -94,7 +94,8 @@
                 pending.click(function(){
                     if(confirm(`Serve ${item.name} for table ${item.table}?`)){
                         $.post('/order/serve', {id:item.id}).done(function(){
-                            socket.emit('refresh', item.client, self.kitchens)
+                            //do nothing
+                            //emit('served', item.client, broadcast=True)
                         });
                     }
                 });
@@ -106,9 +107,11 @@
                     duration = item.duration;
                     groupings[cntr] = {
                         duration: duration,
-                        rows: []
+                        rows: [],
+                        served: true
                     }
                 }
+                if(groupings[cntr].served == true && item.served == null) groupings[cntr].served = false
                 groupings[cntr].rows.push(row);
             });
             for (const cntr in groupings) {
@@ -116,12 +119,15 @@
                 let color = '#27ae60';
                 if(g.duration > 20) color = '#e67e22';
                 if(g.duration > 30) color = '#c0392b';
+                if(g.served) color = '#6c757d';
                 let gwrapper = $('<div />').addClass('rounded-1 mx-1 my-1').css({background: color+'44'}).css({padding: '1px'})
-                gwrapper.append(
-                    $('<p />').addClass('fw-bold mb-0 text-end px-2').css({fontSize:'12px', 'color': color}).html(
-                        $('<span />').html(g.duration > 0 ? g.duration+'m':'now')
-                    )
-                );
+                if(!g.served){
+                    gwrapper.append(
+                        $('<p />').addClass('fw-bold mb-0 text-end px-2').css({fontSize:'12px', 'color': color}).html(
+                            $('<span />').html(g.duration > 0 ? g.duration+'m':'now')
+                        )
+                    );
+                }
                 g.rows.forEach(row => {
                     gwrapper.append(row);
                 })
@@ -147,6 +153,9 @@
             }); 
             socket.on('observe', function(response){
                 observe.display(response);
+            });
+            socket.on('served', function(response){
+                socket.emit('refresh', response, observe.kitchens)
             });
             socket.on('refreshed', function(response){
                 let key = Object.keys(response)[0]

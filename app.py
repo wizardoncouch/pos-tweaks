@@ -303,6 +303,7 @@ def order_accept():
     printers = dict(json.load(p))
     p.close()
 
+    dt = datetime.now()
     printables = {}
     insertables = {}
     cntr = 1
@@ -415,16 +416,14 @@ def order_accept():
                     if 'cntr' in row and row['cntr'] > 0:
                         i = insertables[row['cntr']]
                         if i:
-                            sql = text("""INSERT INTO salestran (`client`,      `clientname`,   `barcode`,      `itemname`,     `isamt`,    `isqty`,    `uom`,      `grp`,      `waiter`,       `osno`,     `screg`,    `scsenior`,     `ccode`,    `source`,   `remarks`,      `isprint`, dateid)
-                                                    VALUES      ('{client}',    '{clientname}', '{barcode}',    '{itemname}',   '{amount}', '{qty}',    '{unit}',   '{group}',  '{waiter}',     '{osno}',   '{screg}',  '{scsenior}',   '{ccode}',  '{source}', '{remarks}',    1,         CURRENT_DATE())"""
-                                                    .format(client=i['client'],clientname=i['clientname'],barcode=i['barcode'],itemname=i['itemname'],amount=i['amount'],qty=i['qty'],unit=i['unit'],group=i['group'],waiter=i['waiter'],osno=i['osno'],screg=i['screg'],scsenior=i['scsenior'],ccode=i['ccode'],source=i['source'],remarks=i['remarks']))
+                            sql = text("""INSERT INTO salestran (`client`,      `clientname`,   `barcode`,      `itemname`,     `isamt`,    `isqty`,    `uom`,      `grp`,      `waiter`,       `osno`,     `screg`,    `scsenior`,     `ccode`,    `source`,   `remarks`,      `isprint`, `dateid`, `ordered`)
+                                                    VALUES      ('{client}',    '{clientname}', '{barcode}',    '{itemname}',   '{amount}', '{qty}',    '{unit}',   '{group}',  '{waiter}',     '{osno}',   '{screg}',  '{scsenior}',   '{ccode}',  '{source}', '{remarks}',    1,         CURRENT_DATE(), '{ordered}')"""
+                                                    .format(client=i['client'],clientname=i['clientname'],barcode=i['barcode'],itemname=i['itemname'],amount=i['amount'],qty=i['qty'],unit=i['unit'],group=i['group'],waiter=i['waiter'],osno=i['osno'],screg=i['screg'],scsenior=i['scsenior'],ccode=i['ccode'],source=i['source'],remarks=i['remarks'],ordered=dt))
                             db.session.execute(sql)
                 p.text("\n{dash}\n\n\n".format(dash=dash))
                 p.cut() 
             else:
                 return make_response(jsonify({'error': 'No Printer Configuration'}))
-        db.session.execute(text("UPDATE `salestran` SET `ordered` = `encoded` WHERE `ordered` IS NULL"))
-        db.session.commit()
         return make_response(jsonify({'success': 'Orders Printed'}))
     except:
         return make_response(jsonify({'error': 'Printer error'}))
@@ -521,8 +520,9 @@ def order_serve():
     if item is None:
         return make_response(jsonify({'error': 'Item not found'}))
     
-    item = db.session.execute(text("UPDATE salestran SET `served`='{d}' WHERE `line`='{line}'".format(d=datetime.now(), line=item.line)))
+    db.session.execute(text("UPDATE salestran SET `served`='{d}' WHERE `line`='{line}'".format(d=datetime.now(), line=item.line)))
     db.session.commit()
+    socketio.emit('served', item.client, broadcast=True)
 
     return make_response(jsonify({'success': 'Item served'}))
 
@@ -566,7 +566,7 @@ def refresh(table, printers):
         db.session.close()
         response = dict()
         response[t.client] = {"name": t.clientname, "items": items}
-        emit('refreshed', response, broadcast=True)
+        emit('refreshed', response)
 
 @socketio.on('read')
 def read(printers):
