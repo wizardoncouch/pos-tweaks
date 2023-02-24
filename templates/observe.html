@@ -104,7 +104,7 @@
                     })
                 ).appendTo(card);
                 $('<div />').addClass('card-body p-0').appendTo(card);
-                $('<div />').css({float:'left', width:'250px'}).addClass('mb-2').html(card).appendTo($('#tables-wrapper'));
+                $('<div />').addClass('mb-2').html(card).appendTo($('#tables-wrapper')).width(250);
             }
             $('#table-'+object.client).find('.card-body').html('');
             if(!object.items.length) return false;
@@ -228,7 +228,8 @@
         }else{
             observe.kitchens = [...[observe.kitchen], ...observe.observe]
             socket.on('connect', function() {
-                socket.emit('read', observe.kitchens);
+                socket.emit('orders', observe.kitchens);
+                //socket.emit('todos', observe.kitchens);
             }); 
             socket.on('observe', async function(response){
                 await observe.display(response);
@@ -242,6 +243,7 @@
                 $('.grid').masonry({percentPosition: true})
             });
         }
+        $('body').append($('<span />').css({color:'white', position:'absolute', zIndex:999, bottom:0, right:0}).html(window.screen.width+'x'+window.screen.height))
     });
 </script>
 {% endblock %}

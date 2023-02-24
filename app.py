@@ -544,6 +544,14 @@ def kitchens():
 
     return make_response(jsonify([{"printer": row.printer} for row in rows]))
 
+@socketio.on('todos')
+def refresh(printers):
+    format_printers = "('{}')".format("','".join([str(i) for i in printers]))
+    sql = text("""SELECT o.*, i.model 
+                    FROM salestran o 
+                    LEFT JOIN item i on i.barcode = o.barcode 
+                    WHERE i.model IN %s AND o.served IS NULL ORDER BY o.`ordered` ASC""" % format_printers)
+
 @socketio.on('refresh')
 def refresh(table, printers):
     t = db.session.execute(text("SELECT * FROM `client` where `client`='{table}'".format(table=table))).fetchone()
@@ -571,10 +579,10 @@ def refresh(table, printers):
         db.session.close()
         emit('refreshed', {"client":t.client, "name": t.clientname, "items": items})
 
-@socketio.on('read')
-def read(printers):
-    format_printers = "('{}')".format("','".join([str(i) for i in printers]))
+@socketio.on('orders')
+def orders(printers):
     while True:
+        format_printers = "('{}')".format("','".join([str(i) for i in printers]))
         db.session.execute(text("UPDATE `salestran` SET `ordered` = `encoded` WHERE `ordered` IS NULL"))
         db.session.commit()
         sql = text("""SELECT o.*, i.model 
@@ -608,6 +616,6 @@ def read(printers):
             tables['k'+str(row.client)]['items'].append(obj)
         db.session.close()
         emit('observe', tables)
-        time.sleep(60)
+        time.sleep(30)
 if __name__ == '__main__':
     socketio.run(app=app,port=8000,debug=True)
