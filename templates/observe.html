@@ -285,7 +285,9 @@
             socket.on('refreshed', async function(response){
                 await observe.todos(response.todos);
                 await observe.table(response.table);
-                //$('.grid').masonry()
+                $('.grid').masonry('destroy');
+                $('.grid').removeData('masonry');
+                $('.grid').masonry()
             });
         }
         $('body').append($('<span />').css({color:'white', position:'absolute', zIndex:999, bottom:0, right:0}).html(window.screen.width+'x'+window.screen.height))

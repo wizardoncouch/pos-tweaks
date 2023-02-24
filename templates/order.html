@@ -137,13 +137,13 @@
         this.actives = [];
         this.hasChanges = false;
         this.getSessions = function(){
-            var localOrders = window.localStorage.getItem('order_'+this.table)
+            var localOrders = window.sessionStorage.getItem('order_'+this.table)
             if(!localOrders) this.sessions = []
             else this.sessions = JSON.parse(localOrders)
         } 
         this.saveSessions = function(){
-            if(this.sessions.length > 0) window.localStorage.setItem('order_'+this.table, JSON.stringify(this.sessions)) 
-            else window.localStorage.removeItem('order_'+this.table)
+            if(this.sessions.length > 0) window.sessionStorage.setItem('order_'+this.table, JSON.stringify(this.sessions)) 
+            else window.sessionStorage.removeItem('order_'+this.table)
         }
         this.addItem = async function(barcode, name, qty, price){
             let create = true;
