@@ -606,4 +606,4 @@ def read(printers):
         emit('observe', tables)
         time.sleep(60)
 if __name__ == '__main__':
-    socketio.run(app=app,port=8080,host='0.0.0.0',debug=True)
+    socketio.run(app=app,port=8000)
