@@ -176,6 +176,10 @@
                 let g = groupings[cntr]
                 let bgc = '#007fffbf';
                 let fc = 'white'
+                if(g.duration <= 1){
+                    bgc = 'purple';
+                    fc = 'white';
+                }
                 if(g.duration > 20){
                     bgc = 'orange';
                     fc = 'white';
