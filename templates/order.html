@@ -131,7 +131,6 @@
         this.orders = [];
         this.sessions = [];
         this.selected = null;
-        this.total = 0;
         this.ismodal = false;
         this.isMultiple = false;
         this.actives = [];
@@ -276,7 +275,7 @@
             }
 
             $('#orders-table').html(tbody)
-            $('#orders-total').html(this.total.toFixed(2))
+            $('#orders-total').html(total.toFixed(2))
             $('#qty-plus, #qty-minus, #settings').prop('disabled', this.selected == null)
             for(const x in this.sessions) this.sessions[x].selected = 0
             this.saveSessions()
