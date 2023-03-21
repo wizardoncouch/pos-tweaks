@@ -119,7 +119,7 @@ elif action == "items":
             print("products set to inactive = {}".format(update.rowcount))
 
         #set the category to inactive if there are no active item found
-        db.session.execute(text("UPDATE tblmenulist set isinactive=1 WHERE (SELECT count(*) FROM item WHERE iscategory=1 and `class`=tblmenulist.class and isinactive=0) = 0"))
+        db.session.execute(text("UPDATE tblmenulist set isinactive=1 WHERE (SELECT count(*) FROM item WHERE iscategory=1 and `class`=`tblmenulist`.`class` and `isinactive`=0) = 0"))
 
 elif action == "sales":
     with app.app_context():
