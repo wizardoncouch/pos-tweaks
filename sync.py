@@ -134,7 +134,7 @@ elif action == "sales":
         if last['code'] != 200:
             exit('Error code: '+str(last['code']))
         
-        last_created = datetime.datetime.strftime(last['created'], '%Y-%m-%d %H:%M:%S') if 'created' in last and last['created'] > '' else ''
+        last_created = datetime.datetime.strptime(last['created'], '%Y-%m-%d %H:%M:%S') if 'created' in last and last['created'] > '' else ''
 
         sql = text("SELECT * FROM `glhead` WHERE `billnumber`>'' AND `printtime` > '{created}' ORDER BY `printtime` ASC".format(created=last_created))
         sales = []
