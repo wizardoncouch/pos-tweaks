@@ -4,6 +4,7 @@ import json
 from dotenv import load_dotenv
 from app import db, app
 from sqlalchemy import text
+import datetime
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
@@ -133,9 +134,9 @@ elif action == "sales":
         if last['code'] != 200:
             exit('Error code: '+str(last['code']))
         
-        last_number = ''#last['number']
+        last_created = datetime.datetime.strftime(last['created'], '%Y-%m-%d %H:%M:%S') if 'created' in last and last['created'] > '' else ''
 
-        sql = text("SELECT * FROM `glhead` WHERE `billnumber`>'' AND `docno` > '{docno}' ORDER BY `docno` ASC".format(docno=last_number))
+        sql = text("SELECT * FROM `glhead` WHERE `billnumber`>'' AND `printtime` > '{created}' ORDER BY `printtime` ASC".format(created=last_created))
         sales = []
         for sale in db.session.execute(sql):
             tsql = text("""SELECT g.*,i.barcode 
