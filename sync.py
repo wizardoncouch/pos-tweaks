@@ -137,6 +137,7 @@ elif action == "sales":
         last_created = datetime.datetime.strptime(last['created'], '%Y-%m-%d %H:%M:%S') if 'created' in last and last['created'] > '' else ''
 
         sql = text("SELECT * FROM `glhead` WHERE `billnumber`>'' AND `printtime` > '{created}' ORDER BY `printtime` ASC".format(created=last_created))
+        print(sql)
         sales = []
         for sale in db.session.execute(sql):
             tsql = text("""SELECT g.*,i.barcode 
