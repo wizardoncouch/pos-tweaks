@@ -156,6 +156,8 @@ elif action == "sales":
             sales.append(dict({
                 'number': sale.docno,
                 'created': sale.printtime.strftime("%Y-%m-%d %H:%M:%S") if sale.printtime else '',
+                'timein': sale.timein.strftime("%Y-%m-%d %H:%M:%S") if sale.timein else '',
+                'date': sale.dateid.strftime("%Y-%m-%d") if sale.dateid else datetime.today().strftime('%Y-%m-%d'),
                 'total': float(sale.amt),
                 'remarks': sale.rem,
                 'items': [dict({
