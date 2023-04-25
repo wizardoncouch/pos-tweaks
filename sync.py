@@ -125,20 +125,29 @@ elif action == "items":
 elif action == "sales":
     with app.app_context():
 
+        syncFile = os.path.join(os.path.dirname(__file__), 'sync.json')
+
+        sync = {}
+        if os.path.isfile(syncFile):
+            p = open(syncFile)
+            sync = dict(json.load(p))
+            p.close()
+
         print("Uploading sales...")
-        response = requests.get('https://pp.d3.net/api.php?action=last-sync&branch=' + branch_id, headers=requests_headers)
-        print(response.json())
-        if response is None:
-            exit('Cannot connect...')
+        # response = requests.get('https://pp.d3.net/api.php?action=last-sync&branch=' + branch_id, headers=requests_headers)
+        # print(response.json())
+        # if response is None:
+        #     exit('Cannot connect...')
 
-        last = dict(response.json())
-        if last['code'] != 200:
-            exit('Error code: '+str(last['code']))
+        # last = dict(response.json())
+        # if last['code'] != 200:
+        #     exit('Error code: '+str(last['code']))
         
-        last_created = datetime.datetime.strptime(last['created'], '%Y-%m-%d %H:%M:%S') if 'created' in last and last['created'] > '' else ''
+        # last_created = datetime.datetime.strptime(last['created'], '%Y-%m-%d %H:%M:%S') if 'created' in last and last['created'] > '' else ''
 
-        sql = text("SELECT * FROM `glhead` WHERE `billnumber`>'' AND `printtime` > '{created}' ORDER BY `printtime` ASC".format(created=last_created))
+        sql = text("SELECT * FROM `glhead` WHERE `trno`>'{last}' ORDER BY `trno` ASC".format(last=sync["last"]))
         sales = []
+        lastuid = 0
         for sale in db.session.execute(sql):
             tsql = text("""SELECT g.*,i.barcode 
                                 FROM `glstock` as g 
@@ -157,6 +166,8 @@ elif action == "sales":
                     'created': item.createdate.strftime("%Y-%m-%d %H:%M:%S") if item.createdate else ''
                 }) for item in db.session.execute(tsql)]
             }))
+            lastuid = sale.trno
+
 
         payload = {
             "action": "sales",
@@ -164,8 +175,15 @@ elif action == "sales":
             "sales": json.dumps(sales)
         }
 
-        response = requests.post("https://pp.d3.net/api.php", data=payload, headers=requests_headers)
-        print(response.json())
+        try:
+            response = requests.post("https://pp.d3.net/api.php", data=payload, headers=requests_headers)
+            print(response.json())
+
+            with open(syncFile, "w") as outfile:
+                sync["last"] = lastuid
+                json.dump(sync, outfile)
+        except:
+            print('cannot connect...')
 
 elif action == 'DynDNS':
 
