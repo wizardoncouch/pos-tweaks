@@ -147,7 +147,7 @@ elif action == "sales":
 
         sql = text("SELECT * FROM `glhead` WHERE `trno`>'{last}' ORDER BY `trno` ASC".format(last=sync["last"]))
         sales = []
-        lastuid = 0
+        lastuid = None
         for sale in db.session.execute(sql):
             tsql = text("""SELECT g.*,i.barcode 
                                 FROM `glstock` as g 
@@ -181,9 +181,10 @@ elif action == "sales":
             response = requests.post("https://pp.d3.net/api.php", data=payload, headers=requests_headers)
             print(response.json())
 
-            with open(syncFile, "w") as outfile:
-                sync["last"] = lastuid
-                json.dump(sync, outfile)
+            if lastuid != None:
+                with open(syncFile, "w") as outfile:
+                    sync["last"] = lastuid
+                    json.dump(sync, outfile)
         except:
             print('cannot connect...')
 
