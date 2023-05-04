@@ -220,7 +220,12 @@
             wrapper.html('')
             if(this.kitchen){
                 wrapper.css({overflow:'auto'})
-                $('<p />').addClass('fs-5 text-center text-white py-2').html(this.kitchen).appendTo(wrapper)
+                $('<p />').addClass('fs-5 text-center text-white py-2').append(
+                    $('<span />').html(this.kitchen),
+                    $('<a />').attr('href', 'javascript:void(0)').addClass('mx-2').html($('<i />').addClass('bi bi-arrow-repeat')).click(function(){
+                        document.location.reload()
+                    })
+                ).appendTo(wrapper)
                 for(const category in todos){
                     let rows = []
                     for(const barcode in todos[category]){
