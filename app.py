@@ -3,7 +3,7 @@ from flask import Flask, render_template, request, make_response, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_socketio import SocketIO, send, emit
 from flask_httpauth import HTTPBasicAuth
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
@@ -137,6 +137,37 @@ def config():
 
     return render_template('config.html', data = {"printers":printers, "options": options, "default": default})
 
+
+@app.route('/repair')
+@auth.login_required
+def repair():
+    os.system('mysqlcheck -h{dbhost} -u{dbuser} -p{dbpass} -P{dbport} lite -r'.format(
+        dbhost = os.environ.get('DB_HOST', '127.0.0.1'),
+        dbuser = os.environ.get('DB_USER', 'root'),
+        dbpass = os.environ.get('DB_PASSWORD', 'mjm'),
+        dbport = os.environ.get('DB_PORT', 3309)
+        ))
+    # mysqlcheck -h192.168.10.100 -uroot -p -P3309 lite -r
+    print('done repair!')
+
+@app.route('/fixdate')
+@auth.login_required
+def fixdate():
+    now = datetime.now()
+    today = now.strftime('%Y-%m-%d')
+    yesterday = now - timedelta(1)
+    encoded = datetime.strftime(yesterday, '%Y-%m-%d 23:59:50')
+    dateid = datetime.strftime(yesterday, '%Y-%m-%d')
+
+    orderstoday = db.session.execute(db.text("SELECT * FROM salestran WHERE date(dateid)='{today}'".format(today=today))).fetchall()
+    ordersyesterday = db.session.execute(db.text("SELECT * FROM salestran WHERE date(dateid)='{yesterday}'".format(yesterday=dateid))).fetchall()
+    if orderstoday and ordersyesterday:
+        db.session.execute(db.text("UPDATE salestran SET encoded='{encoded}', dateid='{dateid}' WHERE date(dateid)='{today}'".format(
+            encoded=encoded,
+            dateid=dateid,
+            today=today
+        )))
+    print('done')
 
 @app.route("/")
 def floors():
