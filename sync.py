@@ -112,11 +112,11 @@ elif action == "items":
         else:
             print('No products found, please check your config file for the branch id')
         
-        if itemids:
-            print(len(itemids))
-            format_ids = "({})".format(','.join([str(i) for i in itemids]))
-            update = db.session.execute(text("UPDATE `item` set `isinactive`=1 WHERE `itemid` NOT IN %s" % format_ids))
-            print("products set to inactive = {}".format(update.rowcount))
+        # if itemids:
+            # print(len(itemids))
+            # format_ids = "({})".format(','.join([str(i) for i in itemids]))
+            # update = db.session.execute(text("UPDATE `item` set `isinactive`=1 WHERE `itemid` NOT IN %s" % format_ids))
+            # print("products set to inactive = {}".format(update.rowcount))
 
         #set the category to inactive if there are no active item found
         db.session.execute(text("UPDATE tblmenulist set isinactive=1 WHERE iscategory=1 AND (SELECT count(*) FROM item WHERE `class`=`tblmenulist`.`class` and `isinactive`=0) = 0"))
