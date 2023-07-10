@@ -432,9 +432,9 @@ def order_accept():
         from escpos import printer
         for prntr in printables:
             printerIP =  printers[prntr]
-            if printerIP == '0.0.0.0': 
-                continue
-            if printerIP:
+
+            willPrint = True if printerIP != '0.0.0.0' else False
+            if willPrint:
                 p = printer.Network(printerIP)
                 date = datetime.now()
                 p.set(font='A')
@@ -442,21 +442,23 @@ def order_accept():
                 p.text("\n\nOrder date: {d}".format(d=date.strftime("%b %d, %Y %H:%M:%S")))
                 p.text("\n\nTable: {table}\n\n".format(table=table.clientname))
 
-                for row in printables[prntr]:
+            for row in printables[prntr]:
+                if willPrint:
                     p.text("\n")
                     p.block_text(txt=str(row['qty']).rstrip('.0') + " - " + row['name'], columns=40)
                     p.text("\n")
-                    if 'cntr' in row and row['cntr'] > 0:
-                        i = insertables[row['cntr']]
-                        if i:
-                            sql = text("""INSERT INTO salestran (`client`,      `clientname`,   `barcode`,      `itemname`,     `isamt`,    `isqty`,    `uom`,      `grp`,      `waiter`,       `osno`,     `screg`,    `scsenior`,     `ccode`,    `source`,   `remarks`,      `isprint`, `dateid`, `ordered`)
-                                                    VALUES      ('{client}',    '{clientname}', '{barcode}',    '{itemname}',   '{amount}', '{qty}',    '{unit}',   '{group}',  '{waiter}',     '{osno}',   '{screg}',  '{scsenior}',   '{ccode}',  '{source}', '{remarks}',    1,         CURRENT_DATE(), '{ordered}')"""
-                                                    .format(client=i['client'],clientname=i['clientname'],barcode=i['barcode'],itemname=i['itemname'],amount=i['amount'],qty=i['qty'],unit=i['unit'],group=i['group'],waiter=i['waiter'],osno=i['osno'],screg=i['screg'],scsenior=i['scsenior'],ccode=i['ccode'],source=i['source'],remarks=i['remarks'],ordered=dt))
-                            db.session.execute(sql)
+                    
+                if 'cntr' in row and row['cntr'] > 0:
+                    i = insertables[row['cntr']]
+                    if i:
+                        sql = text("""INSERT INTO salestran (`client`,      `clientname`,   `barcode`,      `itemname`,     `isamt`,    `isqty`,    `uom`,      `grp`,      `waiter`,       `osno`,     `screg`,    `scsenior`,     `ccode`,    `source`,   `remarks`,      `isprint`, `dateid`, `ordered`)
+                                                VALUES      ('{client}',    '{clientname}', '{barcode}',    '{itemname}',   '{amount}', '{qty}',    '{unit}',   '{group}',  '{waiter}',     '{osno}',   '{screg}',  '{scsenior}',   '{ccode}',  '{source}', '{remarks}',    1,         CURRENT_DATE(), '{ordered}')"""
+                                                .format(client=i['client'],clientname=i['clientname'],barcode=i['barcode'],itemname=i['itemname'],amount=i['amount'],qty=i['qty'],unit=i['unit'],group=i['group'],waiter=i['waiter'],osno=i['osno'],screg=i['screg'],scsenior=i['scsenior'],ccode=i['ccode'],source=i['source'],remarks=i['remarks'],ordered=dt))
+                        db.session.execute(sql)
+
+            if willPrint:
                 p.text("\n{dash}\n\n\n".format(dash=dash))
                 p.cut() 
-            else:
-                return make_response(jsonify({'error': 'No Printer Configuration'}))
         
         socketio.emit('updated', table.client, broadcast=True)
         return make_response(jsonify({'success': 'Orders Printed'}))
@@ -527,9 +529,8 @@ def order_void():
         try:
             for prntr in prntrs:
                 printerIP =  printers[prntr]
-                if printerIP == '0.0.0.0': 
-                    continue
-                if printerIP:
+
+                if printerIP and printerIP != '0.0.0.0':
                     p = printer.Network(printerIP)
                     date = datetime.now()
                     p.set(font='A')
