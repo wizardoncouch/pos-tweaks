@@ -432,6 +432,8 @@ def order_accept():
         from escpos import printer
         for prntr in printables:
             printerIP =  printers[prntr]
+            if printerIP == '0.0.0.0': 
+                continue
             if printerIP:
                 p = printer.Network(printerIP)
                 date = datetime.now()
@@ -525,6 +527,8 @@ def order_void():
         try:
             for prntr in prntrs:
                 printerIP =  printers[prntr]
+                if printerIP == '0.0.0.0': 
+                    continue
                 if printerIP:
                     p = printer.Network(printerIP)
                     date = datetime.now()
