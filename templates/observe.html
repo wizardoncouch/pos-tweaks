@@ -220,7 +220,12 @@
             wrapper.html('')
             if(this.kitchen){
                 wrapper.css({overflow:'auto'})
-                $('<p />').addClass('fs-5 text-center text-white py-2').append(
+                $('<p />').addClass('fs-5 d-flex justify-content-between text-white py-2').append(
+                    $('<a />').attr('href', 'javascript:void(0)').addClass('mx-2 text-secondary').html($('<i />').addClass('bi bi-arrow-left')).click(function(){
+                        window.localStorage.setItem('kitchen', null);
+                        window.localStorage.setItem('observe', null);
+                        document.location.reload();
+                    }),
                     $('<span />').html(this.kitchen),
                     $('<a />').attr('href', 'javascript:void(0)').addClass('mx-2 text-secondary').html($('<i />').addClass('bi bi-arrow-repeat')).click(function(){
                         document.location.reload()
