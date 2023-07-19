@@ -222,8 +222,8 @@
                 wrapper.css({overflow:'auto'})
                 $('<p />').addClass('fs-5 d-flex justify-content-between text-white py-2').append(
                     $('<a />').attr('href', 'javascript:void(0)').addClass('mx-2 text-secondary').html($('<i />').addClass('bi bi-arrow-left')).click(function(){
-                        window.localStorage.setItem('kitchen', null);
-                        window.localStorage.setItem('observe', null);
+                        window.localStorage.setItem('kitchen', '');
+                        window.localStorage.setItem('observe', []);
                         document.location.reload();
                     }),
                     $('<span />').html(this.kitchen),
@@ -281,7 +281,8 @@
                 observe.selectKitchen()
             });
         }else{
-            observe.kitchens = [...[observe.kitchen], ...observe.observe]
+            //observe.kitchens = [...[observe.kitchen], ...observe.observe]
+            observe.kitchens = [observe.kitchen, ...observe.observe]
             socket.on('connect', function() {
                 socket.emit('orders', observe.kitchens);
             }); 
