@@ -98,9 +98,7 @@
   </style>
 </head>
 <body>
-  <div>
-    {% block content %}{% endblock %}
-  </div>
+  {% block content %}{% endblock %}
   <script src="{{ url_for('static', filename= 'js/popper.min.js') }}"></script>
   <script src="{{ url_for('static', filename= 'js/bootstrap.min.js') }}"></script>
   <script src="{{ url_for('static', filename= 'js/jquery-3.6.3.min.js') }}"></script>
