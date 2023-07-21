@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="vh-100" id="observer-wrapper" style="background:#34495e; overflow:auto;">
+<div id="observer-wrapper" style="height:100%;width:100%;background:#34495e; overflow:auto;">
 </div>
 {% endblock %}
 {% block js %}
@@ -87,7 +87,10 @@
             cardBody.appendTo(card)
             cardFooter.appendTo(card)
 
-            $('#observer-wrapper').css('padding', '30px 0').html(card);
+            $('#observer-wrapper').css({
+                padding: '30px 0',
+                height:window.innerHeight+'px',
+            }).html(card);
         }
 
         this.table = function(object){
@@ -256,7 +259,9 @@
             let todos = response.todos
             let tables = response.tables
             let wrapper = $('#observer-wrapper');
-            wrapper.addClass('d-flex');
+            wrapper.css({
+                height: window.innerHeight+'px'
+            }).addClass('d-flex');
 
             if(Object.keys(tables).length > 0){
                 wrapper.html('').append(
@@ -299,7 +304,7 @@
                 $('.grid').masonry()
             });
         }
-        $('body').append($('<span />').css({color:'white', position:'absolute', zIndex:999, bottom:0, right:0}).html(window.screen.width+'x'+window.screen.height))
+        $('body').css('height', '100%').append($('<span />').css({color:'white', position:'absolute', zIndex:999, bottom:0, right:0}).html(window.screen.width+'x'+window.screen.height))
     });
 </script>
 {% endblock %}
