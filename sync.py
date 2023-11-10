@@ -60,6 +60,7 @@ elif action == "items":
         itemids = []
         if len(products.json()):
             for product in products.json():
+                if product['floor']: print(f"type is floor: {product['name']}")
 
                 category = db.session.execute(text("SELECT count(*) as cnt FROM tblmenulist WHERE `class`='{cl}' and iscategory=1".format(cl=product['category']))).fetchone()
                 if category.cnt == 0:
@@ -73,13 +74,14 @@ elif action == "items":
 
 
                 p = db.session.execute(text("SELECT *, `class` as category FROM `item` WHERE `barcode`='{uid}'".format(uid=product['uid']))).fetchone()
+                t = 'floor' if product['floor'] else ''
                 if p is None:
                     classPrinter = db.session.execute(text("SELECT model FROM item WHERE `class`='{cl}' and `model` > '' LIMIT 1".format(cl=product['category']))).fetchone()
                     model = classPrinter.model if classPrinter else ''
                     
-                    inserted = db.session.execute(text("""INSERT INTO `item`(`barcode`,    `itemname`,     `shortname`,    `groupid`,      `part`, `class`,    `uom`,      `dlock`,    `amt`,      `taxable`, `model`  ) 
-                                                        VALUES  ('{barcode}',   '{itemname}',   '{shortname}',  '{groupid}',    'MENU', '{cl}',     '{unit}',    NOW(),     '{amt}',    1,         '{model}')"""
-                                                        .format(barcode=product['uid'], itemname=product['name'], shortname=product['name'], groupid=product['group'], cl=product['category'], unit=product['unit'], amt=product['price'], model=model)))
+                    inserted = db.session.execute(text("""INSERT INTO `item`(`barcode`,    `itemname`,     `shortname`,    `groupid`,      `part`, `class`,    `uom`,      `dlock`,    `amt`,      `taxable`, `model`, `type`  ) 
+                                                        VALUES  ('{barcode}',   '{itemname}',   '{shortname}',  '{groupid}',    'MENU', '{cl}',     '{unit}',    NOW(),     '{amt}',    1,         '{model}' , '{type}')"""
+                                                        .format(barcode=product['uid'], itemname=product['name'], shortname=product['name'], groupid=product['group'], cl=product['category'], unit=product['unit'], amt=product['price'], model=model, type=t)))
                     db.session.commit()
                     print("{name} is inserted... with id {id}".format(name=product['name'], id=inserted.lastrowid))
                     p = db.session.execute(text("SELECT *, `class` as category FROM `item` WHERE itemid='{itemid}'".format(itemid=inserted.lastrowid))).fetchone()
@@ -96,6 +98,9 @@ elif action == "items":
                 if float(product['price']) != float(p.amt):
                     db.session.execute(text("UPDATE `item` set `amt`='{amt}' WHERE `itemid`='{itemid}'".format(amt=product['price'], itemid=p.itemid)))
                     print("{name} price is updated...".format(name=product['name']))
+                if p.type != t:
+                    db.session.execute(text("UPDATE `item` set `type`='{type}' WHERE `itemid`='{itemid}'".format(type=t, itemid=p.itemid)))
+                    print("{name} type is updated...".format(name=product['name']))
 
                 #update if the category is changed
                 if p.category != product['category']:
@@ -185,8 +190,10 @@ elif action == "sales":
                 with open(syncFile, "w") as outfile:
                     sync["last"] = lastuid
                     json.dump(sync, outfile)
-        except:
-            print('cannot connect...')
+        except Exception as e:
+            print("Exception occurred"+ repr(e))
+
+            print('Cannot sync...')
 
 elif action == 'DynDNS':
 

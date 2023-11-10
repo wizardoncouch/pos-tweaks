@@ -26,6 +26,8 @@ SQLALCHEMY_DATABASE_URI = "mysql+pymysql://{user}:{password}@{host}:{port}/{data
     database = os.environ.get('DB_NAME', 'lite'),
     port = os.environ.get('DB_PORT', 3309)
 )
+
+
 SQLALCHEMY_TRACK_MODIFICATIONS = True
 SQLALCHEMY_ECHO = False
 
@@ -79,6 +81,22 @@ def verify_password(username, password):
 
 @app.before_request 
 def before_request_callback(): 
+    try:
+        db.session.execute(text("CREATE DATABASE IF NOT EXISTS `pos-x`"))
+    except:
+        print('Cannot create database pos-x')
+    
+    try:
+        db.session.execute(text("""CREATE TABLE IF NOT EXISTS `pos-x`.`printers` (
+                `id` int unsigned NOT NULL AUTO_INCREMENT,
+                `name` VARCHAR(255),
+                `ip` VARCHAR(255),
+                `floors` TEXT,
+                PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB """))
+    except Exception as e:
+        print(f'Cannot create table printers: {e}')
+
     ordered = db.session.execute(text("SHOW COLUMNS FROM `salestran` LIKE 'ordered'"))
     if ordered.rowcount == 0:
         print('Add ordered column...')
@@ -111,31 +129,36 @@ def t():
 def config():
 
     if request.method == "POST":
-        with open(printersFile, "w") as outfile:
-            json.dump(request.form, outfile)
+        for row in db.session.execute(text("SELECT * from `pos-x`.`printers` where 1")):
+            ip = request.form.get(f'ip_{row.id}')
+            floors = ','.join(request.form.getlist(f'floors_{row.id}'))
+            db.session.execute(text(f"UPDATE `pos-x`.`printers` SET `ip`='{ip}', `floors`='{floors}' WHERE id='{row.id}'"))
+            print(f"UPDATE `pos-x`.`printers` SET `ip`='{ip}', `floors`='{floors}' WHERE id='{row.id}'")
+            db.session.commit()
 
-    printers = {}
+    oldconfig = {}
     if os.path.isfile(printersFile):
         p = open(printersFile)
-        printers = dict(json.load(p))
+        oldconfig = dict(json.load(p))
         p.close()
 
-    default = printers['default'] if "default" in printers else None
-    options = []
-    rows = db.session.execute(text("SELECT distinct(model) as printer from item where model > ''"))
+    rows = db.session.execute(text("SELECT distinct(model) as name from `item` where model > ''")).fetchall()
     for row in rows:
-        if default is None:
-            default = row.printer
-        options.append(row.printer)
+        printer = db.session.execute(text(f"SELECT * FROM `pos-x`.`printers` WHERE `name`='{row.name}'")).fetchone()
+        if printer is None:
+            ip = oldconfig[row.name] if row.name in oldconfig else ''
+            db.session.execute(text(f"INSERT INTO `pos-x`.`printers`(`name`,`ip`) VALUES('{row.name}', '{ip}')"))
 
-        if row.printer not in printers:
-            printers[row.printer] = ""
-    
-    if 'default' in printers:
-        del printers['default']
+    db.session.commit()
+    printers = [{
+            "id": row.id,
+            "name": row.name, 
+            "ip": row.ip, 
+            "floors":row.floors.split(',') if row.floors else []
+        } for row in db.session.execute(text("SELECT * from `pos-x`.`printers` where 1"))]
+    floors = db.session.execute(text("SELECT DISTINCT(flr) as name FROM client where isconsignee=1")).fetchall()
 
-
-    return render_template('config.html', data = {"printers":printers, "options": options, "default": default})
+    return render_template('config.html', data = {"printers":printers, "floors":floors})
 
 
 @app.route('/repair')
@@ -186,7 +209,9 @@ def floors():
     floor = args.get('floor')
     if floor is None and data['floors']:
         floor = data['floors'][0]['name']
+
     sql = text("""SELECT `clientname`, `client`, `clientid`, `locx`, `locy`, (SELECT count(*) from salestran WHERE client=client.client) as `ordercount` FROM `client` WHERE flr='{floor}'""".format(floor=floor))
+
     data['tables'] = [{
         "id": table.clientid,
         "name": table.clientname,
@@ -330,60 +355,56 @@ def order_accept():
     if table is None:
         return make_response(jsonify({'error': 'No table passed'}), 422)
 
-    p = open(printersFile)
-    printers = dict(json.load(p))
-    p.close()
+    allPrinters = {}
+    for row in db.session.execute(text("SELECT * from `pos-x`.`printers`")).fetchall():
+        allPrinters[row.name] = row.ip
+    floorPrinters = {}
+    for row in db.session.execute(text(f"SELECT * FROM `pos-x`.`printers` WHERE `floors` LIKE '%{table.flr}%'")).fetchall():
+        floorPrinters[row.name] = row.ip
 
     dt = datetime.now()
     printables = {}
-    insertables = {}
-    cntr = 1
     for order_item in json.loads(items):
         item = db.session.execute(text("SELECT *, class as category FROM item where barcode='{code}'".format(code=order_item['barcode']))).fetchone()
         if item is None:
             continue
 
-        prntr = item.model if item.model and item.model in printers else printers['default']
+        printers = floorPrinters if item.type == 'floor' else allPrinters
 
-        if not prntr in printables:
-            printables[prntr] = []
+        if item.model and not item.model in printables and item.model in printers:
+            printables[item.model] = []
         
-        if item.printer2 and not item.printer2 in printables:
+        if item.printer2 and not item.printer2 in printables and item.printer2 in printers:
             printables[item.printer2] = []
 
-        if item.printer3 and not item.printer3 in printables:
+        if item.printer3 and not item.printer3 in printables and item.printer3 in printers:
             printables[item.printer3] = []
 
-        if item.printer4 and not item.printer4 in printables:
+        if item.printer4 and not item.printer4 in printables and item.printer4 in printers:
             printables[item.printer4] = []
 
-        if item.printer5 and not item.printer5 in printables:
+        if item.printer5 and not item.printer5 in printables and item.printer5 in printers:
             printables[item.printer5] = []
 
         order_item_qty = order_item['qty']
         order_item_remarks = order_item['remarks']
 
         order_name = "{itemname} {group} {remarks}".format(itemname=item.itemname, group=order_item['group'], remarks="\n!!! "+order_item_remarks+" !!!" if order_item_remarks else "")
-        printables[prntr].append({
-            "cntr": cntr,
-            "barcode": item.barcode,
-            "name": order_name,
-            "qty": order_item_qty,
-            "unit": item.uom
-        })
         extobj = {
             "barcode": item.barcode,
             "name": order_name,
             "qty": order_item_qty,
             "unit": item.uom
         }
-        if item.printer2 > '':
+        if item.model > '' and item.model in printables:
+            printables[item.model].append(extobj)
+        if item.printer2 > '' and item.printer2 in printables:
             printables[item.printer2].append(extobj)
-        if item.printer3 > '':
+        if item.printer3 > '' and item.printer3 in printables:
             printables[item.printer3].append(extobj)
-        if item.printer4 > '':
+        if item.printer4 > '' and item.printer4 in printables:
             printables[item.printer4].append(extobj)
-        if item.printer5 > '':
+        if item.printer5 > '' and item.printer5 in printables:
             printables[item.printer5].append(extobj)
 
         transaction = db.session.execute(text("SELECT * FROM salestran WHERE `client`='{table}' LIMIT 1".format(table=table.client))).fetchone()
@@ -408,7 +429,7 @@ def order_accept():
             source = transaction.source
 
         if osno > 0:
-            insertables[cntr] = {
+            i = {
                 'client': table.client,
                 'clientname': table.clientname,
                 'barcode': item.barcode,
@@ -425,8 +446,15 @@ def order_accept():
                 'source': source,
                 'remarks': order_item_remarks,
             }
+            sql = text("""INSERT INTO salestran (`client`,      `clientname`,   `barcode`,      `itemname`,     `isamt`,    `isqty`,    `uom`,      `grp`,      `waiter`,       `osno`,     `screg`,    `scsenior`,     `ccode`,    `source`,   `remarks`,      `isprint`, `dateid`, `ordered`)
+                                    VALUES      ('{client}',    '{clientname}', '{barcode}',    '{itemname}',   '{amount}', '{qty}',    '{unit}',   '{group}',  '{waiter}',     '{osno}',   '{screg}',  '{scsenior}',   '{ccode}',  '{source}', '{remarks}',    1,         CURRENT_DATE(), '{ordered}')"""
+                                    .format(client=i['client'],clientname=i['clientname'],barcode=i['barcode'],itemname=i['itemname'],amount=i['amount'],qty=i['qty'],unit=i['unit'],group=i['group'],waiter=i['waiter'],osno=i['osno'],screg=i['screg'],scsenior=i['scsenior'],ccode=i['ccode'],source=i['source'],remarks=i['remarks'],ordered=dt))
+            db.session.execute(sql)
+        # print(printables)
 
-        cntr += 1
+        # cntr += 1
+    
+    # return ''
 
     try:
         from escpos import printer
@@ -447,14 +475,6 @@ def order_accept():
                     p.text("\n")
                     p.block_text(txt=str(row['qty']).rstrip('.0') + " - " + row['name'], columns=40)
                     p.text("\n")
-                    
-                if 'cntr' in row and row['cntr'] > 0:
-                    i = insertables[row['cntr']]
-                    if i:
-                        sql = text("""INSERT INTO salestran (`client`,      `clientname`,   `barcode`,      `itemname`,     `isamt`,    `isqty`,    `uom`,      `grp`,      `waiter`,       `osno`,     `screg`,    `scsenior`,     `ccode`,    `source`,   `remarks`,      `isprint`, `dateid`, `ordered`)
-                                                VALUES      ('{client}',    '{clientname}', '{barcode}',    '{itemname}',   '{amount}', '{qty}',    '{unit}',   '{group}',  '{waiter}',     '{osno}',   '{screg}',  '{scsenior}',   '{ccode}',  '{source}', '{remarks}',    1,         CURRENT_DATE(), '{ordered}')"""
-                                                .format(client=i['client'],clientname=i['clientname'],barcode=i['barcode'],itemname=i['itemname'],amount=i['amount'],qty=i['qty'],unit=i['unit'],group=i['group'],waiter=i['waiter'],osno=i['osno'],screg=i['screg'],scsenior=i['scsenior'],ccode=i['ccode'],source=i['source'],remarks=i['remarks'],ordered=dt))
-                        db.session.execute(sql)
 
             if willPrint:
                 p.text("\n{dash}\n\n\n".format(dash=dash))
@@ -686,4 +706,5 @@ def orders(printers):
         emit('observe', {"todos": todos, "tables": tables})
         time.sleep(60)
 if __name__ == '__main__':
+    # app.run(port=8000, debug=True)
     socketio.run(app=app,port=8000,debug=True)
