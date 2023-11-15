@@ -4,7 +4,7 @@
 <div class="vh-100">
     {%if data.floors|length > 1%}
     <div id="floorSelect" style="height:60px;" class="bg-light d-flex align-items-center justify-content-center">
-        <div class="w-100">
+        <div class="w-100 d-flex justify-content-between">
             <div class="d-flex align-items-center">
                 {%for floor in data.floors%}
                 <a class="d-flex justify-content-between text-decoration-none btn btn-sm text-uppercase {{ 'text-success fw-bold' if floor.name == data.floor else 'text-secondary'}}"
@@ -12,6 +12,7 @@
                         class="bi bi-check text-success"></i>{%endif%}</a>
                 {%endfor%}
             </div>
+            <a class="btn btn-light m-2"  href="/observe"><i class="bi bi-arrow-right"></i> Observe</a>
         </div>
     </div>
     {%endif%}
@@ -29,7 +30,6 @@
     </div>
 
 </div>
-<a class="btn btn-dark m-2"  style="position:absolute; left:0; bottom:0;" href="/observe"><i class="bi bi-arrow-right"></i> Observe</a>
 {% endblock %}
 {% block js %}
 <script type="text/javascript">
