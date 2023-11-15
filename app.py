@@ -524,7 +524,7 @@ def order_void():
     p.close()
 
     sql = text("""
-            SELECT i.model, i.printer2, i.printer3, i.printer4, i.printer5, st.itemname as itemname, st.isqty as qty, st.line, st.client, st.clientname, st.barcode 
+            SELECT i.type, i.model, i.printer2, i.printer3, i.printer4, i.printer5, st.itemname as itemname, st.isqty as qty, st.line, st.client, st.clientname, st.barcode 
             FROM `salestran` as st
             LEFT JOIN `item` as i ON st.barcode = i.barcode
             WHERE st.line = '{line}'""".format(line=line))
@@ -532,18 +532,33 @@ def order_void():
     
     if item is None:
         return make_response(jsonify({'error': "Item can't be found"}), 422)
+    
+    table = db.session.execute(text("SELECT * FROM `client` WHERE `client`='{client}'".format(client=item.client))).fetchone()
+    if table is None:
+        return make_response(jsonify({'error': 'No table found'}), 422)
+
+    allPrinters = {}
+    for row in db.session.execute(text("SELECT * from `pos-x`.`printers`")).fetchall():
+        allPrinters[row.name] = row.ip
+    floorPrinters = {}
+    for row in db.session.execute(text(f"SELECT * FROM `pos-x`.`printers` WHERE `floors` LIKE '%{table.flr}%'")).fetchall():
+        floorPrinters[row.name] = row.ip
+    
+    printerOptions = floorPrinters if item.type == 'floor' else allPrinters
 
     try:
         from escpos import printer
-        prntr = item.model if item.model and item.model in printers else printers['default']
-        prntrs = [prntr]
-        if item.printer2 > '':
+        # prntr = item.model if item.model and item.model in printers else printers['default']
+        prntrs = []
+        if item.model > '' and not item.model in prntrs and item.model in printerOptions:
+            prntrs.append(item.model) 
+        if item.printer2 > '' and not item.printer2 in prntrs and item.printer2 in printerOptions:
             prntrs.append(item.printer2) 
-        if item.printer3 > '':
+        if item.printer3 > '' and not item.printer3 in prntrs and item.printer3 in printerOptions:
             prntrs.append(item.printer3) 
-        if item.printer4 > '':
+        if item.printer4 > '' and not item.printer4 in prntrs and item.printer4 in printerOptions:
             prntrs.append(item.printer4) 
-        if item.printer5 > '':
+        if item.printer5 > '' and not item.printer5 in prntrs and item.printer5 in printerOptions:
             prntrs.append(item.printer5) 
         
         try:
@@ -707,4 +722,4 @@ def orders(printers):
         time.sleep(60)
 if __name__ == '__main__':
     # app.run(port=8000, debug=True)
-    socketio.run(app=app,port=8000,debug=True)
+    socketio.run(app=app,host='0.0.0.0',port=8008,debug=True)
