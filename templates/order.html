@@ -360,9 +360,8 @@
                         alert(response.success)
                         self.sessions = []
                         await self.saveSessions()
-                        await self.display()
                     }
-                    $('#accept-order').prop('disabled', false).html('Accept Order')
+                    await self.display()
                 })
             }
         }
