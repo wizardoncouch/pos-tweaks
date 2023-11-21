@@ -164,7 +164,11 @@ elif action == "sales":
                 'timein': sale.timein.strftime("%Y-%m-%d %H:%M:%S") if sale.timein else '',
                 'date': sale.dateid.strftime("%Y-%m-%d") if sale.dateid else datetime.today().strftime('%Y-%m-%d'),
                 'total': float(sale.amt),
-                'remarks': sale.rem,
+                'remarks': sale.rem.replace('"', '').replace("'", ''),
+                'currency': 'PHP',
+                'paytype': sale.yourref.lower(),
+                'batch': sale.batch.lower(),
+                'approval': sale.approval,
                 'items': [dict({
                     'uid': item.barcode if item.barcode else 0,
                     'name': item.itemname,
