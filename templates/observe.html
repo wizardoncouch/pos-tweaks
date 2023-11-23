@@ -277,7 +277,7 @@
             }else{
                 let noOrdersWrapper = $('<div />')
                 $('<h1 />').addClass('text-uppercase text-white').html('No orders yet').appendTo(noOrdersWrapper)
-                $('<a />').attr('href', 'javascript:void(0)').addClass('mx-2 text-secondary').html($('<i />').addClass('bi bi-arrow-left') + ' Back').click(function(){
+                $('<a />').attr('href', 'javascript:void(0)').addClass('mx-2 text-secondary').html('<i class="bi bi-arrow-left"></i> Back').click(function(){
                     window.localStorage.setItem('kitchen', '');
                     window.localStorage.setItem('observe', []);
                     document.location.reload();
