@@ -458,7 +458,7 @@ def order_accept():
     try:
         from escpos import printer
         for prntr in printables:
-            printerIP =  printers[prntr]
+            printerIP =  allPrinters[prntr]
 
             willPrint = True if printerIP != '0.0.0.0' else False
             if willPrint:
