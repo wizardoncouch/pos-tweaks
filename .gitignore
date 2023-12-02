@@ -1,5 +1,6 @@
 .DS_Store
 printers.json
+sync.json
 error.log
 /__pycache__
 /venv

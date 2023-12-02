@@ -13,6 +13,8 @@ branch_id = os.environ.get('BRANCH_ID')
 domain    = os.environ.get('DOMAIN')
 requests_headers = {'X-API-TOKEN': 'Hi8193YOls721e'}
 
+remote_url = 'https://pp.d3.net'
+
  
 # total arguments
 if len(sys.argv) <= 1:
@@ -22,6 +24,7 @@ action = sys.argv[1]
 if action not in ['files', 'items', 'sales','DynDNS', 'test']:
     exit('action options are: [files, items, sales, test]')
 
+if sys.argv[2] is not None and sys.argv[2] == 'local': remote_url = 'http://pp.local'
 
 if action == "files":
     print('Syncing files...')
@@ -117,11 +120,11 @@ elif action == "items":
         else:
             print('No products found, please check your config file for the branch id')
         
-        # if itemids:
-            # print(len(itemids))
-            # format_ids = "({})".format(','.join([str(i) for i in itemids]))
-            # update = db.session.execute(text("UPDATE `item` set `isinactive`=1 WHERE `itemid` NOT IN %s" % format_ids))
-            # print("products set to inactive = {}".format(update.rowcount))
+        if itemids:
+            print(len(itemids))
+            format_ids = "({})".format(','.join([str(i) for i in itemids]))
+            update = db.session.execute(text("UPDATE `item` set `isinactive`=1 WHERE `itemid` NOT IN %s" % format_ids))
+            print("products set to inactive = {}".format(update.rowcount))
 
         #set the category to inactive if there are no active item found
         db.session.execute(text("UPDATE tblmenulist set isinactive=1 WHERE iscategory=1 AND (SELECT count(*) FROM item WHERE `class`=`tblmenulist`.`class` and `isinactive`=0) = 0"))
@@ -187,7 +190,7 @@ elif action == "sales":
         }
 
         try:
-            response = requests.post("https://pp.d3.net/api.php", data=payload, headers=requests_headers)
+            response = requests.post(f"{remote_url}/api.php", data=payload, headers=requests_headers)
             print(response.json())
 
             if lastuid != None:

@@ -160,7 +160,6 @@ def config():
 
     return render_template('config.html', data = {"printers":printers, "floors":floors})
 
-
 @app.route('/repair')
 @auth.login_required
 def repair():
@@ -721,5 +720,5 @@ def orders(printers):
         emit('observe', {"todos": todos, "tables": tables})
         time.sleep(60)
 if __name__ == '__main__':
-    app.run(port=8000, debug=True)
-    # socketio.run(app=app,host='0.0.0.0',port=8008,debug=True)
+    #app.run(port=8000, debug=True)
+    socketio.run(app=app,host='0.0.0.0',port=8008,debug=True)
