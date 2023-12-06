@@ -154,7 +154,7 @@ elif action == "sales":
         
         # last_created = datetime.datetime.strptime(last['created'], '%Y-%m-%d %H:%M:%S') if 'created' in last and last['created'] > '' else ''
 
-        sql = text("SELECT * FROM `glhead` WHERE `trno`>'{last}' ORDER BY `trno` ASC LIMIT 1".format(last=sync["last"]))
+        sql = text("SELECT * FROM `glhead` WHERE `trno`>'{last}' ORDER BY `trno`".format(last=sync["last"]))
         sales = []
         lastuid = None
         for sale in db.session.execute(sql):
