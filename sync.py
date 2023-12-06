@@ -177,6 +177,7 @@ elif action == "sales":
                     'uid': item.barcode if item.barcode else 0,
                     'name': item.itemname.replace('"', '').replace("'", ''),
                     'qty': float(item.isqty),
+                    'amount': float(item.ext),
                     'created': item.createdate.strftime("%Y-%m-%d %H:%M:%S") if item.createdate else ''
                 }) for item in db.session.execute(tsql)]
             }))
