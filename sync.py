@@ -190,7 +190,7 @@ elif action == "sales":
             "sales": json.dumps(sales)
         }
 
-        print(payload)
+        # print(payload)
 
         try:
             response = requests.post(f"{remote_url}/api.php", data=payload, headers=requests_headers)
