@@ -24,7 +24,8 @@ action = sys.argv[1]
 if action not in ['files', 'items', 'sales','DynDNS', 'test']:
     exit('action options are: [files, items, sales, test]')
 
-if sys.argv[2] is not None and sys.argv[2] == 'local': remote_url = 'http://pp.local'
+
+if len(sys.argv) > 2 and sys.argv[2] == 'local': remote_url = 'http://pp.local'
 
 if action == "files":
     print('Syncing files...')
@@ -153,7 +154,7 @@ elif action == "sales":
         
         # last_created = datetime.datetime.strptime(last['created'], '%Y-%m-%d %H:%M:%S') if 'created' in last and last['created'] > '' else ''
 
-        sql = text("SELECT * FROM `glhead` WHERE `trno`>'{last}' ORDER BY `trno` ASC".format(last=sync["last"]))
+        sql = text("SELECT * FROM `glhead` WHERE `trno`>'{last}' ORDER BY `trno` ASC LIMIT 1".format(last=sync["last"]))
         sales = []
         lastuid = None
         for sale in db.session.execute(sql):
@@ -174,8 +175,7 @@ elif action == "sales":
                 'approval': sale.approval,
                 'items': [dict({
                     'uid': item.barcode if item.barcode else 0,
-                    'name': item.itemname,
-                    'amount': float(item.ext),
+                    'name': item.itemname.replace('"', '').replace("'", ''),
                     'qty': float(item.isqty),
                     'created': item.createdate.strftime("%Y-%m-%d %H:%M:%S") if item.createdate else ''
                 }) for item in db.session.execute(tsql)]
@@ -188,6 +188,8 @@ elif action == "sales":
             "branch": branch_id,
             "sales": json.dumps(sales)
         }
+
+        print(payload)
 
         try:
             response = requests.post(f"{remote_url}/api.php", data=payload, headers=requests_headers)
